@@ -1894,10 +1894,32 @@ function showPause(){
     <h2>Brotzeit</h2>
     <p>Der Radlader wartet. Die Feuerwehr auch.</p>
     ${speedHTML()}
-    <button class="cta" id="go">Weiter</button>`;
+    <div class="btns" id="pauseBtns">
+      <button class="cta" id="go">Weiter</button>
+      <button class="cta ghost" id="quit">Einsatz abbrechen</button>
+    </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard);
   bindSpeed(); saveRun();
   $('go').addEventListener('click', resume);
+  $('quit').addEventListener('click', () => {
+    // confirm inside the card, browser dialogs are not reliable here
+    $('pauseBtns').innerHTML = `
+      <p>Einsatz wirklich abbrechen? Rekord und Abzeichen bleiben erhalten, das laufende Spiel ist dann weg.</p>
+      <div class="sub">
+        <button class="cta" id="quitYes">Ja, abbrechen</button>
+        <button class="cta ghost" id="quitNo">Nein, weiter</button>
+      </div>`;
+    $('quitYes').addEventListener('click', quitGame);
+    $('quitNo').addEventListener('click', resume);
+    requestAnimationFrame(fitCard);
+  });
+}
+function quitGame(){
+  clearRun();
+  state = 'title'; prevState = null; ev = null; kat = null;
+  overlay.hidden = true; $('funk').hidden = true; $('toast').hidden = true;
+  loadMap(1); resetGrid(); resetPositions(); level = 1; setLevelText(); renderLives();
+  splashEl.hidden = false; markSplashRole(); fitSplash();
 }
 let wakeLock = null;
 function requestWake(){
