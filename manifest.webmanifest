@@ -1,0 +1,26 @@
+{
+  "name": "Blaulicht-Jagd",
+  "short_name": "Blaulicht-Jagd",
+  "description": "THW gegen Feuerwehr im Labyrinth, mit Katastrophenfall, Ereignissen und Abzeichen.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1019",
+  "theme_color": "#0b1019",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
