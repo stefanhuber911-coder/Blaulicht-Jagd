@@ -349,7 +349,7 @@ function curVehicle(){
 
 /* ---------- Badges (per role) ---------- */
 const BADGES = [
-  {id:'deichgraf', n:{thw:'Deichgraf', fw:'Deichgraf'}, d:'In einem Katastrophenfall mindestens 8 Sandsäcke selbst gesetzt'},
+  {id:'deichgraf', n:{thw:'Deichgraf', fw:'Deichgraf'}, d:'In einem Katastrophenfall mindestens 6 Sandsäcke selbst gesetzt'},
   {id:'abschlepp', n:{thw:'Abschleppkönig', fw:'Überholkönig'}, d:{thw:'Alle Feuerwehrautos in einer einzigen Fluchtphase abgeschleppt', fw:'Alle THW-Fahrzeuge in einer einzigen Fluchtphase überholt'}},
   {id:'kratzer', n:{thw:'Ohne Kratzer', fw:'Ohne Kratzer'}, d:'Einen Einsatz ohne Lebensverlust geschafft'},
   {id:'alarm', n:{thw:'Großalarm', fw:'Land unter'}, d:{thw:'B5-Alarm ausgelöst und den Einsatz danach geschafft', fw:'Hochwasser-Alarm ausgelöst und den Einsatz danach geschafft'}},
@@ -429,10 +429,25 @@ function showToast(b, isNew){
   el.appendChild(t);
   el.hidden = false; toastT = 3.2;
 }
+let audioUnlocked = false;
 function ensureAudio(){
+  // iOS: play game sound like media, also when the ringer switch is on silent (the in-game button still mutes)
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch(e){}
   if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ ac = null; } }
-  if (ac && ac.state === 'suspended') ac.resume().catch(()=>{});
+  if (!ac) return;
+  if (ac.state !== 'running') ac.resume().catch(()=>{});
+  if (!audioUnlocked){
+    // older iOS versions only unlock audio after something was actually played inside a tap
+    try {
+      const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource();
+      src.buffer = b; src.connect(ac.destination); src.start(0);
+      audioUnlocked = true;
+    } catch(e){}
+  }
 }
+// iOS counts only finished taps (touchend / click) as permission for sound, and pauses audio after app switches
+['touchend', 'click', 'keydown'].forEach(t => window.addEventListener(t, () => { if (!muted) ensureAudio(); }, {capture:true, passive:true}));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && ac && ac.state !== 'running' && !muted) ac.resume().catch(()=>{}); });
 let bus = null, noiseBuf = null;
 function out(){
   if (!bus){
@@ -742,7 +757,7 @@ function endKat(ok){
   ghosts.forEach(g => { g.carry = false; g.loadT = 0; });
   phaseIdx = 0; phaseT = 0; graceT = 2.5;
   ghosts.forEach(g => { if (g.mode === 'active') reverse(g); });
-  if (own >= 8) award('deichgraf');
+  if (own >= 6) award('deichgraf');
   funk(ok ? 'katWin' : 'katFail');
   if (ok){
     lives++; renderLives(); sfx.katWin();
