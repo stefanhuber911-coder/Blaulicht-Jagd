@@ -2155,7 +2155,7 @@ function drawPaw(g, cx, cy, r){
 }
 /* Wasserwacht rescue boat, seen from above */
 function drawBoat(g, cx, cy, s, dir, t){
-  g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
+  g.save(); g.translate(cx, cy); g.rotate([-Math.PI/2, Math.PI, Math.PI/2, 0][player.face < 0 ? 3 : player.face]);
   const u = s;
   g.fillStyle = '#e8562a'; g.beginPath(); g.moveTo(u*.46, 0); g.quadraticCurveTo(u*.3, -u*.3, -u*.4, -u*.27); g.lineTo(-u*.44, u*.27); g.quadraticCurveTo(u*.3, u*.3, u*.46, 0); g.closePath(); g.fill();
   g.fillStyle = '#f4f6fa'; g.beginPath(); g.moveTo(u*.36, 0); g.quadraticCurveTo(u*.22, -u*.2, -u*.32, -u*.18); g.lineTo(-u*.34, u*.18); g.quadraticCurveTo(u*.22, u*.2, u*.36, 0); g.closePath(); g.fill();
@@ -2514,11 +2514,12 @@ function drawB5(g, cx, cy, s, t){
   g.restore();
 }
 function orient(g, dir){
-  // dir is either 0-3 or a smooth view state {m: mirrored, a: angle}
+  // side view: mirrored for left, tilted slightly when driving up or down (no 90 degree turn)
+  // dir is either 0-3 or a view state {m: mirrored, a: tilt}
   if (dir && typeof dir === 'object'){ if (dir.m) g.scale(-1, 1); if (dir.a) g.rotate(dir.a); return; }
   if (dir === 1) g.scale(-1, 1);
-  else if (dir === 0) g.rotate(-Math.PI/2);
-  else if (dir === 2) g.rotate(Math.PI/2);
+  else if (dir === 0) g.rotate(-.16);
+  else if (dir === 2) g.rotate(.16);
 }
 let WHEEL_ROT = 0;   // set per vehicle before drawing, so wheels turn with the distance driven
 function wheel(g, x, y, r, s){
@@ -2534,21 +2535,18 @@ function wheel(g, x, y, r, s){
 /* ---------- Visual effects (can be switched off, and are reduced automatically on slow phones) ---------- */
 let fxOn = store.get('radlader-fx', '1') !== '0', fxAuto = true, renderDt = 1/60;
 const fxActive = () => fxOn && fxAuto;
-const DIR_ANG = [-Math.PI/2, 0, Math.PI/2, 0];
+const DIR_TILT = [-.16, 0, .16, 0];
 function viewDir(e, d){
-  if (!fxActive()) return d;
-  const v = e.vis || (e.vis = {m: d === 1, a: DIR_ANG[d < 0 ? 3 : d], ta: DIR_ANG[d < 0 ? 3 : d]});
+  // keeps the last left/right facing while driving up or down
+  const v = e.vis || (e.vis = {m: d === 1, a: DIR_TILT[d < 0 ? 3 : d], ta: DIR_TILT[d < 0 ? 3 : d]});
   if (d === 1) v.m = true; else if (d === 3) v.m = false;
-  if (d >= 0) v.ta = DIR_ANG[d];
+  if (d >= 0) v.ta = DIR_TILT[d];
+  if (!fxActive()){ v.a = v.ta; return v; }
   const diff = v.ta - v.a;
-  v.a += Math.sign(diff) * Math.min(Math.abs(diff), renderDt * 13);
+  v.a += Math.sign(diff) * Math.min(Math.abs(diff), renderDt * 2.5);
   return v;
 }
-function heading(e, d){ // screen angle the vehicle points to
-  const v = e.vis;
-  if (fxActive() && v) return v.m ? Math.atan2(Math.sin(v.a), -Math.cos(v.a)) : v.a;
-  return [-Math.PI/2, Math.PI, Math.PI/2, 0][d < 0 ? 3 : d];
-}
+function heading(e, d){ return [-Math.PI/2, Math.PI, Math.PI/2, 0][d < 0 ? 3 : d]; }   // screen angle the vehicle drives to
 function rolled(e, x, y){
   // distance driven, used for wheel spin and a slight bounce
   if (e._lx == null){ e._lx = x; e._ly = y; e.dist = 0; }
@@ -2681,100 +2679,199 @@ function drawGlows(){
   if (rescue) rescue.units.forEach(u => { if (u.state === 'tired') return; const q = pos(u); glow((q.x + .5)*S, (q.y + .2)*S, S*1.6, blue, .28 * blink(u.id*2.1)); });
   ctx.restore();
 }
+/* ---------- Vehicles, detailed side view: real proportions, shutters, rims, contour marking ---------- */
+function vGrad(g, y0, y1, c0, c1){ const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, c0); gr.addColorStop(1, c1); return gr; }
+function dWheel(g, x, y, r){
+  g.fillStyle = '#0f1115'; g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#2a2f38'; g.beginPath(); g.arc(x, y, r*.86, 0, Math.PI*2); g.fill();
+  g.fillStyle = r > 3 ? vGrad(g, y - r*.6, y + r*.6, '#e3e8ef', '#8f99a8') : '#b7c0cc'; g.beginPath(); g.arc(x, y, r*.56, 0, Math.PI*2); g.fill();
+  if (r > 3){
+    g.fillStyle = '#5b6575';
+    for (let k = 0; k < 6; k++){ const a = WHEEL_ROT + k*Math.PI/3; g.beginPath(); g.arc(x + Math.cos(a)*r*.36, y + Math.sin(a)*r*.36, r*.07, 0, Math.PI*2); g.fill(); }
+  }
+  g.fillStyle = '#3a414d'; g.beginPath(); g.arc(x, y, r*.16, 0, Math.PI*2); g.fill();
+}
+function dBar(g, x, y, w, h, off, t){
+  g.fillStyle = '#c9ced6'; g.fillRect(x, y + h*.7, w, h*.3);
+  if (off){ g.fillStyle = '#56627a'; rr(g, x, y, w, h*.8, h*.3); g.fill(); return; }
+  const a = Math.sin(t*16) > 0;
+  g.fillStyle = a ? '#5aa2ff' : '#1a3c80'; rr(g, x, y, w*.46, h*.8, h*.3); g.fill();
+  g.fillStyle = a ? '#1a3c80' : '#5aa2ff'; rr(g, x + w*.54, y, w*.46, h*.8, h*.3); g.fill();
+  g.fillStyle = 'rgba(90,162,255,.28)'; g.beginPath(); g.arc(x + (a ? w*.23 : w*.77), y + h*.4, w*.5, 0, Math.PI*2); g.fill();
+}
+function dGlass(g, y0, y1, fr){ return fr ? 'rgba(220,230,255,.55)' : vGrad(g, y0, y1, '#e6f2ff', '#7fa6d6'); }
+/* cab-forward truck cab: slanted screen, side window, mirror, step, door seam */
+function dCab(g, u, pal, badge){
+  g.fillStyle = vGrad(g, -u*.3, u*.16, pal.hi, pal.base);
+  g.beginPath(); g.moveTo(u*.12, u*.16); g.lineTo(u*.12, -u*.28); g.quadraticCurveTo(u*.12, -u*.32, u*.17, -u*.32); g.lineTo(u*.38, -u*.32); g.quadraticCurveTo(u*.43, -u*.32, u*.44, -u*.26); g.lineTo(u*.48, -u*.02); g.lineTo(u*.48, u*.16); g.closePath(); g.fill();
+  g.fillStyle = dGlass(g, -u*.28, -u*.08, pal.fr);
+  g.beginPath(); g.moveTo(u*.3, -u*.27); g.lineTo(u*.4, -u*.27); g.lineTo(u*.44, -u*.08); g.lineTo(u*.3, -u*.08); g.closePath(); g.fill();
+  g.fillRect(u*.16, -u*.27, u*.11, u*.17);
+  if (!pal.fr){ g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.moveTo(u*.33, -u*.1); g.lineTo(u*.37, -u*.26); g.lineTo(u*.39, -u*.26); g.lineTo(u*.35, -u*.1); g.closePath(); g.fill(); }
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = Math.max(1, u*.012); g.beginPath(); g.moveTo(u*.28, -u*.28); g.lineTo(u*.28, u*.12); g.stroke();
+  g.fillStyle = '#2a2f38'; g.fillRect(u*.45, -u*.24, u*.03, u*.1);
+  g.fillStyle = '#1b1f27'; g.fillRect(u*.12, u*.1, u*.36, u*.06);
+  g.fillStyle = '#fff6c8'; g.fillRect(u*.45, u*.02, u*.03, u*.05);
+  g.fillStyle = '#c9ced6'; g.fillRect(u*.44, u*.1, u*.06, u*.05);
+  if (badge && !pal.fr){ g.fillStyle = '#f4f6fa'; g.beginPath(); g.arc(u*.21, -u*.01, u*.045, 0, Math.PI*2); g.fill(); g.fillStyle = pal.base; g.beginPath(); g.arc(u*.21, -u*.01, u*.022, 0, Math.PI*2); g.fill(); }
+}
+/* equipment body with roller shutters */
+function dBox(g, u, top, pal, shutters){
+  g.fillStyle = vGrad(g, top, u*.12, pal.hi, pal.base); rr(g, -u*.49, top, u*.6, u*.12 - top, u*.03); g.fill();
+  if (shutters){
+    for (let k = 0; k < 3; k++){
+      const x = -u*.46 + k*u*.19, w = u*.17;
+      g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(x, top + u*.04, w, u*.1 - top);
+      g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 1; g.beginPath(); for (let y = top + u*.07; y < u*.1; y += u*.035){ g.moveTo(x, y); g.lineTo(x + w, y); } g.stroke();
+      g.fillStyle = '#c9ced6'; g.fillRect(x + w*.4, u*.08, w*.2, u*.02);
+    }
+  }
+  g.fillStyle = '#1b1f27'; g.fillRect(-u*.49, u*.1, u*.6, u*.05);
+}
+function dMarking(g, u, top, pal, fire){
+  g.fillStyle = pal.stripe; g.fillRect(-u*.49, u*.04, u*.97, u*.03);
+  if (fire && !pal.fr){ const h = (u*.12 - top)/4; for (let k = 0; k < 4; k++){ g.fillStyle = k % 2 ? '#ffd23f' : '#e0353d'; g.fillRect(-u*.5, top + u*.02 + k*h, u*.025, h); } }
+}
+function dWheels(g, u){
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(-u*.27, u*.17, u*.18, Math.PI, 0); g.fill(); g.beginPath(); g.arc(u*.3, u*.17, u*.18, Math.PI, 0); g.fill();
+  dWheel(g, -u*.27, u*.2, u*.15); dWheel(g, u*.3, u*.2, u*.15);
+}
+const PAL = {
+  fw:  {base:'#cf2a32', hi:'#f2555b', dark:'#8f1d23', stripe:'#f4f6fa'},
+  thw: {base:'#1a4fb8', hi:'#4b82e6', dark:'#123a8c', stripe:'#f4f6fa'},
+  fwF: {base:'#3e4f73', hi:'#5f739c', dark:'#2c3954', stripe:'#7f93bb', fr:true},
+  thwF:{base:'#5d6675', hi:'#808a9a', dark:'#3f4653', stripe:'#9aa3b2', fr:true},
+  flash:{base:'#dfe6f1', hi:'#ffffff', dark:'#aeb8c8', stripe:'#5d6675', fr:true}
+};
+function palFor(fire, gh, frightLeft){
+  if (!gh || !gh.fright) return fire ? PAL.fw : PAL.thw;
+  return frightLeft < 2 && Math.floor(frightLeft * 5) % 2 === 0 ? PAL.flash : fire ? PAL.fwF : PAL.thwF;
+}
+/* fire brigade: lf, dlk, rw, elw (command car), tlf (tanker) */
+function drawFwC(g, u, v, pal, t){
+  if (v === 'dlk'){
+    g.fillStyle = '#9aa3b2'; g.beginPath(); g.arc(-u*.3, -u*.2, u*.08, Math.PI, 0); g.fill();
+    g.fillStyle = vGrad(g, -u*.42, -u*.32, '#f0f3f7', '#9aa3b2'); g.fillRect(-u*.48, -u*.41, u*1.04, u*.09);
+    g.strokeStyle = '#6b7585'; g.lineWidth = Math.max(1, u*.014); g.beginPath(); for (let k = 0; k < 15; k++){ const x = -u*.46 + k*u*.07; g.moveTo(x, -u*.41); g.lineTo(x, -u*.32); } g.stroke();
+    g.fillStyle = '#d7dde6'; g.fillRect(u*.5, -u*.5, u*.09, u*.1);
+  }
+  if (v === 'elw'){
+    // command van: one long body with windows and a radio mast
+    const top = -u*.24;
+    g.fillStyle = vGrad(g, top, u*.14, pal.hi, pal.base); rr(g, -u*.46, top, u*.92, u*.38, u*.07); g.fill();
+    g.fillStyle = dGlass(g, top + u*.05, top + u*.16, pal.fr);
+    for (let k = 0; k < 3; k++) g.fillRect(-u*.38 + k*u*.18, top + u*.05, u*.14, u*.11);
+    g.beginPath(); g.moveTo(u*.24, top + u*.05); g.lineTo(u*.36, top + u*.05); g.lineTo(u*.43, top + u*.17); g.lineTo(u*.24, top + u*.17); g.closePath(); g.fill();
+    g.strokeStyle = '#c9ced6'; g.lineWidth = Math.max(1, u*.02); g.beginPath(); g.moveTo(-u*.32, top); g.lineTo(-u*.36, top - u*.2); g.stroke();
+    g.fillStyle = pal.stripe; g.fillRect(-u*.46, u*.03, u*.92, u*.03);
+    g.fillStyle = '#1b1f27'; g.fillRect(-u*.46, u*.1, u*.92, u*.04);
+    dBar(g, u*.02, top - u*.07, u*.24, u*.07, pal.fr, t);
+    dWheels(g, u); return;
+  }
+  const top = v === 'dlk' ? -u*.2 : v === 'rw' ? -u*.32 : -u*.28;
+  if (v === 'tlf'){
+    // tanker: rounded tank behind the cab
+    g.fillStyle = vGrad(g, -u*.26, u*.12, pal.hi, pal.base); rr(g, -u*.49, -u*.24, u*.6, u*.36, u*.16); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = Math.max(1, u*.015); g.beginPath(); g.moveTo(-u*.3, -u*.23); g.lineTo(-u*.3, u*.1); g.moveTo(-u*.08, -u*.23); g.lineTo(-u*.08, u*.1); g.stroke();
+    g.fillStyle = '#c9ced6'; g.fillRect(-u*.4, -u*.29, u*.2, u*.05);
+    g.fillStyle = '#1b1f27'; g.fillRect(-u*.49, u*.1, u*.6, u*.05);
+  } else {
+    dBox(g, u, top, pal, true);
+    if (v === 'lf'){
+      g.fillStyle = '#c9ced6'; g.fillRect(-u*.44, top - u*.05, u*.46, u*.04);
+      g.strokeStyle = '#6b7585'; g.lineWidth = 1; g.beginPath(); for (let k = 0; k < 8; k++){ g.moveTo(-u*.42 + k*u*.06, top - u*.05); g.lineTo(-u*.42 + k*u*.06, top - u*.01); } g.stroke();
+      g.fillStyle = '#9aa3b2'; g.beginPath(); g.arc(-u*.49, -u*.04, u*.07, Math.PI/2, Math.PI*1.5); g.fill();
+    }
+    if (v === 'rw'){
+      g.fillStyle = '#9aa3b2'; g.fillRect(-u*.38, top - u*.18, u*.025, u*.18);
+      g.fillStyle = pal.fr ? '#9aa3b2' : '#fff1a0'; rr(g, -u*.45, top - u*.23, u*.16, u*.06, u*.02); g.fill();
+      g.fillStyle = '#c9ced6'; g.fillRect(-u*.2, top - u*.05, u*.28, u*.05);
+    }
+  }
+  dMarking(g, u, top, pal, true);
+  dCab(g, u, pal, false);
+  dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
+  dWheels(g, u);
+}
+/* THW: gkw (box truck), kipper, mzkw (crane), mtw (crew bus) */
+function drawThwC(g, u, v, pal, t){
+  if (v === 'mtw'){
+    const top = -u*.24;
+    g.fillStyle = vGrad(g, top, u*.14, pal.hi, pal.base); rr(g, -u*.46, top, u*.92, u*.38, u*.08); g.fill();
+    g.fillStyle = dGlass(g, top + u*.05, top + u*.16, pal.fr);
+    for (let k = 0; k < 3; k++) g.fillRect(-u*.38 + k*u*.18, top + u*.05, u*.14, u*.11);
+    g.beginPath(); g.moveTo(u*.24, top + u*.05); g.lineTo(u*.36, top + u*.05); g.lineTo(u*.43, top + u*.17); g.lineTo(u*.24, top + u*.17); g.closePath(); g.fill();
+    g.fillStyle = pal.stripe; g.fillRect(-u*.46, u*.03, u*.92, u*.03);
+    g.fillStyle = '#1b1f27'; g.fillRect(-u*.46, u*.1, u*.92, u*.04);
+    dBar(g, u*.02, top - u*.07, u*.24, u*.07, pal.fr, t);
+    dWheels(g, u); return;
+  }
+  const top = v === 'mzkw' ? -u*.2 : -u*.28;
+  if (v === 'kipper'){
+    g.fillStyle = pal.fr ? vGrad(g, -u*.24, u*.08, pal.hi, pal.dark) : vGrad(g, -u*.24, u*.08, '#b8c0cb', '#6b7585');
+    g.beginPath(); g.moveTo(-u*.5, -u*.24); g.lineTo(u*.09, -u*.24); g.lineTo(u*.07, u*.06); g.lineTo(-u*.45, u*.06); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = Math.max(1, u*.014); g.beginPath(); for (let k = 1; k < 6; k++){ g.moveTo(-u*.5 + k*u*.1, -u*.22); g.lineTo(-u*.48 + k*u*.1, u*.05); } g.stroke();
+    if (!pal.fr){ g.fillStyle = '#b5a98f'; for (let k = 0; k < 7; k++){ g.beginPath(); g.arc(-u*.46 + k*u*.085, -u*.25, u*.045, Math.PI, 0); g.fill(); } }
+    g.fillStyle = '#2a2f38'; g.fillRect(-u*.46, u*.06, u*.56, u*.05);
+  } else {
+    dBox(g, u, top, pal, v === 'gkw');
+    if (v === 'mzkw'){
+      g.strokeStyle = pal.fr ? '#9aa3b2' : '#ffd23f'; g.lineWidth = Math.max(1.5, u*.06); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(u*.08, top); g.lineTo(-u*.1, top - u*.14); g.lineTo(-u*.44, top - u*.1); g.stroke();
+      g.fillStyle = '#5b6575'; g.fillRect(-u*.46, top - u*.1, u*.02, u*.12);
+    }
+  }
+  dMarking(g, u, top, pal, false);
+  dCab(g, u, pal, true);
+  dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
+  dWheels(g, u);
+}
 function drawLoader(g, cx, cy, s, dir, anim, t, o){
   o = o || {};
   g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
-  const u = s;
-  const lift = (Math.sin(anim) + 1) / 2; // 0 low, 1 high
-  // arm
-  const bx = u*.36, by = u*(.16 - .3*lift);
-  g.strokeStyle = o.arm || '#173f91'; g.lineWidth = u*.1; g.lineCap = 'round';
-  g.beginPath(); g.moveTo(u*.06, -u*.04); g.lineTo(bx, by); g.stroke();
-  // bucket
-  g.save(); g.translate(bx, by); g.rotate(-.5*lift + .1);
-  g.fillStyle = '#9aa4b1';
-  g.beginPath(); g.moveTo(-u*.02, -u*.17); g.lineTo(u*.05, u*.13); g.lineTo(u*.2, u*.14); g.lineTo(u*.14, u*.06); g.lineTo(u*.04, u*.06); g.closePath(); g.fill();
-  g.fillStyle = '#5d6672'; g.fillRect(-u*.04, -u*.17, u*.06, u*.3);
+  const u = s, pal = o.pal || PAL.thw;
+  const lift = (Math.sin(anim) + 1) / 2, bx = u*.38, by = u*(.12 - .26*lift);
+  g.strokeStyle = pal.dark; g.lineWidth = u*.08; g.lineCap = 'round'; g.beginPath(); g.moveTo(u*.02, -u*.06); g.lineTo(bx, by); g.stroke();
+  g.fillStyle = '#c9ced6'; g.fillRect(u*.1, -u*.08, u*.14, u*.03);
+  g.save(); g.translate(bx, by); g.rotate(-.45*lift + .05);
+  g.fillStyle = vGrad(g, -u*.16, u*.14, '#d3d9e2', '#7d8794'); g.beginPath(); g.moveTo(-u*.04, -u*.16); g.lineTo(u*.02, u*.13); g.lineTo(u*.22, u*.14); g.lineTo(u*.18, u*.02); g.closePath(); g.fill();
+  g.fillStyle = '#5d6672'; for (let k = 0; k < 4; k++) g.fillRect(u*.2, u*.04 + k*u*.025, u*.03, u*.012);
   g.restore();
-  // chassis + rear
-  g.fillStyle = o.body || COL.thw;
-  rr(g, -u*.44, -u*.02, u*.6, u*.18, u*.04); g.fill();
-  rr(g, -u*.44, -u*.15, u*.3, u*.16, u*.05); g.fill();
-  // cab
-  rr(g, -u*.16, -u*.42, u*.26, u*.42, u*.04); g.fill();
-  g.fillStyle = 'rgba(175,212,255,.9)'; g.fillRect(-u*.11, -u*.37, u*.17, u*.17);
-  // white line
-  g.fillStyle = '#f4f6fa'; g.fillRect(-u*.44, u*.05, u*.6, u*.035);
-  // exhaust
-  g.fillStyle = '#2b2f36'; g.fillRect(-u*.38, -u*.27, u*.04, u*.13);
-  // wheels
-  wheel(g, -u*.27, u*.22, u*.17, s); wheel(g, u*.08, u*.22, u*.17, s);
-  // beacon
-  const on = !o.dark && (Math.sin(t*9) > -.2);
-  g.fillStyle = on ? COL.beacon : '#7a5a14';
-  g.beginPath(); g.ellipse(-u*.03, -u*.44, u*.06, u*.045, 0, Math.PI, 0); g.fill();
-  if (on){ g.fillStyle = 'rgba(255,182,39,.22)'; g.beginPath(); g.arc(-u*.03, -u*.46, u*.18, 0, Math.PI*2); g.fill(); }
+  g.fillStyle = vGrad(g, -u*.14, u*.14, pal.hi, pal.base); rr(g, -u*.49, -u*.14, u*.36, u*.28, u*.05); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 0; k < 4; k++) g.fillRect(-u*.45 + k*u*.06, -u*.08, u*.03, u*.14);
+  g.fillStyle = '#2b2f36'; g.fillRect(-u*.42, -u*.3, u*.035, u*.16);
+  g.fillStyle = vGrad(g, -u*.02, u*.14, pal.hi, pal.base); rr(g, -u*.2, -u*.02, u*.42, u*.16, u*.04); g.fill();
+  g.fillStyle = vGrad(g, -u*.44, 0, pal.hi, pal.base); rr(g, -u*.18, -u*.44, u*.3, u*.44, u*.04); g.fill();
+  g.fillStyle = dGlass(g, -u*.4, -u*.16, pal.fr); g.fillRect(-u*.13, -u*.39, u*.2, u*.22);
+  g.strokeStyle = pal.base; g.lineWidth = Math.max(1, u*.02); g.beginPath(); g.moveTo(-u*.03, -u*.39); g.lineTo(-u*.03, -u*.17); g.stroke();
+  g.fillStyle = pal.stripe; g.fillRect(-u*.49, u*.05, u*.71, u*.03);
+  if (!pal.fr){ g.fillStyle = '#f4f6fa'; g.beginPath(); g.arc(-u*.32, -u*.02, u*.045, 0, Math.PI*2); g.fill(); g.fillStyle = pal.base; g.beginPath(); g.arc(-u*.32, -u*.02, u*.022, 0, Math.PI*2); g.fill(); }
+  const on = !pal.fr && !o.dark && Math.sin(t*9) > -.2;
+  g.fillStyle = on ? '#ffc04d' : '#7a5a14'; g.beginPath(); g.ellipse(-u*.03, -u*.45, u*.055, u*.05, 0, Math.PI, 0); g.fill();
+  if (on){ g.fillStyle = 'rgba(255,182,39,.2)'; g.beginPath(); g.arc(-u*.03, -u*.48, u*.12, 0, Math.PI*2); g.fill(); }
+  dWheel(g, -u*.3, u*.2, u*.19); dWheel(g, u*.1, u*.2, u*.19);
   g.restore();
 }
-const TRUCK_STRIPE = ['#f4f6fa', '#f4f6fa', '#ffd23f', '#f4f6fa', '#ffd23f'];
+function eatenTruck(g, u, t){
+  g.globalAlpha = .55;
+  g.strokeStyle = '#c7d0dd'; g.lineWidth = Math.max(1, u*.05); g.setLineDash([u*.08, u*.06]);
+  rr(g, -u*.42, -u*.3, u*.84, u*.46, u*.06); g.stroke(); g.setLineDash([]);
+  g.globalAlpha = 1;
+  dWheel(g, -u*.22, u*.24, u*.13); dWheel(g, u*.24, u*.24, u*.13);
+  const a = Math.sin(t*20) > 0;
+  g.fillStyle = a ? '#3d8bff' : '#1c3f7a'; g.fillRect(u*.08, -u*.4, u*.14, u*.08);
+  g.fillStyle = a ? '#1c3f7a' : '#3d8bff'; g.fillRect(u*.22, -u*.4, u*.14, u*.08);
+}
+const FW_KIND = ['lf', 'dlk', 'rw', 'elw', 'tlf'];
 function drawTruck(g, cx, cy, s, dir, gh, t, frightLeft){
   g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 1 : dir);
-  const u = s, v = gh.id;
-  const eaten = gh.mode === 'eaten';
-  if (eaten){
-    g.globalAlpha = .55;
-    g.strokeStyle = '#c7d0dd'; g.lineWidth = Math.max(1, u*.05); g.setLineDash([u*.08, u*.06]);
-    rr(g, -u*.42, -u*.3, u*.84, u*.46, u*.06); g.stroke(); g.setLineDash([]);
-    g.globalAlpha = 1;
-    wheel(g, -u*.22, u*.24, u*.13, s); wheel(g, u*.24, u*.24, u*.13, s);
-    const a = Math.sin(t*20) > 0;
-    g.fillStyle = a ? '#3d8bff' : '#1c3f7a'; g.fillRect(u*.08, -u*.4, u*.14, u*.08);
-    g.fillStyle = a ? '#1c3f7a' : '#3d8bff'; g.fillRect(u*.22, -u*.4, u*.14, u*.08);
-    g.restore(); return;
-  }
-  let body = COL.fire, cab = COL.fire, stripe = TRUCK_STRIPE[v];
+  const u = s;
+  if (gh.mode === 'eaten'){ eatenTruck(g, u, t); g.restore(); return; }
+  drawFwC(g, u, FW_KIND[gh.id] || 'lf', palFor(true, gh, frightLeft), t + gh.id);
   if (gh.fright){
-    const flash = frightLeft < 2 && Math.floor(frightLeft * 5) % 2 === 0;
-    body = cab = flash ? '#e9eef6' : '#3e4f73';
-    stripe = flash ? '#3e4f73' : '#7f93bb';
-  }
-  // ladder (DLK)
-  if (v === 1){
-    g.strokeStyle = gh.fright ? '#9fb0cf' : '#c9ced6'; g.lineWidth = Math.max(1, u*.035);
-    g.beginPath(); g.moveTo(-u*.5, -u*.38); g.lineTo(u*.24, -u*.38); g.moveTo(-u*.5, -u*.3); g.lineTo(u*.24, -u*.3);
-    for (let k=0;k<6;k++){ const x = -u*.46 + k*u*.13; g.moveTo(x, -u*.38); g.lineTo(x, -u*.3); }
-    g.stroke();
-  }
-  const top = v === 3 ? -u*.18 : -u*.3;
-  // body
-  g.fillStyle = body; rr(g, -u*.44, top, u*.64, u*.46 - (top + u*.3) + u*.0, u*.05); g.fill();
-  // cab
-  g.fillStyle = cab; rr(g, u*.16, -u*.26, u*.28, u*.42, u*.06); g.fill();
-  g.fillStyle = gh.fright ? 'rgba(220,230,255,.55)' : 'rgba(190,225,255,.92)'; g.fillRect(u*.27, -u*.21, u*.13, u*.15);
-  // stripe
-  g.fillStyle = stripe; g.fillRect(-u*.44, u*.04, u*.88, u*.045);
-  // shutters (LF) / crane (RW)
-  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = Math.max(1, u*.025);
-  if (v === 0 || v === 2 || v === 4){ g.beginPath(); for (let k=1;k<4;k++){ const x = -u*.44 + k*u*.15; g.moveTo(x, top + u*.05); g.lineTo(x, u*.02); } g.stroke(); }
-  if (v === 2){ g.fillStyle = gh.fright ? '#9fb0cf' : '#ffd23f'; g.fillRect(-u*.44, top - u*.08, u*.22, u*.08); }
-  if (v === 4){ g.fillStyle = gh.fright ? '#9fb0cf' : '#c9ced6'; g.fillRect(-u*.24, top - u*.06, u*.1, u*.06); g.fillRect(-u*.2, top - u*.1, u*.2, u*.045); }
-  if (v === 3){ g.strokeStyle = '#c9ced6'; g.beginPath(); g.moveTo(-u*.3, top); g.lineTo(-u*.36, top - u*.2); g.stroke(); }
-  // wheels
-  wheel(g, -u*.24, u*.23, u*.14, s); wheel(g, u*.26, u*.23, u*.14, s);
-  // light bar
-  const lx = u*.18, ly = -u*.34;
-  if (gh.fright){
-    g.fillStyle = '#56627a'; g.fillRect(lx, ly, u*.24, u*.08);
-  } else {
-    const a = Math.sin(t*16 + v) > 0;
-    g.fillStyle = a ? '#3d8bff' : '#16346b'; g.fillRect(lx, ly, u*.12, u*.08);
-    g.fillStyle = a ? '#16346b' : '#3d8bff'; g.fillRect(lx + u*.12, ly, u*.12, u*.08);
-    g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(lx + (a ? u*.06 : u*.18), ly, u*.2, 0, Math.PI*2); g.fill();
-  }
-  // frightened face: empty water drop
-  if (gh.fright){
-    g.fillStyle = '#e9eef6'; g.globalAlpha = .9;
-    g.beginPath(); g.moveTo(-u*.16, top + u*.06); g.quadraticCurveTo(-u*.26, top + u*.2, -u*.16, top + u*.24); g.quadraticCurveTo(-u*.06, top + u*.2, -u*.16, top + u*.06); g.fill();
+    // frightened: an empty water drop on the body
+    g.fillStyle = '#e9eef6'; g.globalAlpha = .9; const top = -u*.22;
+    g.beginPath(); g.moveTo(-u*.2, top + u*.06); g.quadraticCurveTo(-u*.3, top + u*.2, -u*.2, top + u*.24); g.quadraticCurveTo(-u*.1, top + u*.2, -u*.2, top + u*.06); g.fill();
     g.globalAlpha = 1;
   }
   g.restore();
@@ -2799,83 +2896,35 @@ function drawHydrant(g, cx, cy, s, pulse){
   g.restore();
 }
 // THW vehicles as chasers: 0 GKW, 1 Kipper, 2 MzKW with crane, 3 MTW, 4 Radlader
+const THW_KIND = ['gkw', 'kipper', 'mzkw', 'mtw'];
 function drawThw(g, cx, cy, s, dir, gh, t, frightLeft){
-  const u = s, v = gh.id;
-  let body = COL.thw, dark = '#173f91', stripe = '#f4f6fa';
-  if (gh.fright){
-    const flash = frightLeft < 2 && Math.floor(frightLeft * 5) % 2 === 0;
-    body = flash ? '#e9eef6' : '#5d6675'; dark = flash ? '#aeb8c8' : '#3f4653'; stripe = flash ? '#5d6675' : '#9aa3b2';
-  }
-  if (v === 4 && gh.mode !== 'eaten'){ drawLoader(g, cx, cy, s*1.04, dir < 0 ? 1 : dir, t*5, t, {body, arm: dark, dark: gh.fright}); return; }
+  const pal = palFor(false, gh, frightLeft);
+  if (gh.id === 4 && gh.mode !== 'eaten'){ drawLoader(g, cx, cy, s*1.04, dir < 0 ? 1 : dir, t*5, t, {pal, dark: gh.fright}); return; }
   g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 1 : dir);
-  if (gh.mode === 'eaten'){
-    g.globalAlpha = .55;
-    g.strokeStyle = '#c7d0dd'; g.lineWidth = Math.max(1, u*.05); g.setLineDash([u*.08, u*.06]);
-    rr(g, -u*.42, -u*.3, u*.84, u*.46, u*.06); g.stroke(); g.setLineDash([]);
-    g.globalAlpha = 1;
-    wheel(g, -u*.22, u*.24, u*.13, s); wheel(g, u*.24, u*.24, u*.13, s);
-    const a = Math.sin(t*20) > 0;
-    g.fillStyle = a ? '#3d8bff' : '#1c3f7a'; g.fillRect(u*.08, -u*.4, u*.14, u*.08);
-    g.fillStyle = a ? '#1c3f7a' : '#3d8bff'; g.fillRect(u*.22, -u*.4, u*.14, u*.08);
-    g.restore(); return;
-  }
-  const glass = gh.fright ? 'rgba(220,230,255,.5)' : 'rgba(190,225,255,.92)';
-  let ly = -u*.34, lx = u*.18;
-  if (v === 3){
-    const top = -u*.22; ly = -u*.29; lx = u*.1;
-    g.fillStyle = body; rr(g, -u*.44, top, u*.88, u*.38, u*.09); g.fill();
-    g.fillStyle = glass;
-    for (let k=0;k<3;k++) g.fillRect(-u*.36 + k*u*.2, top + u*.06, u*.14, u*.11);
-    g.fillRect(u*.26, top + u*.06, u*.12, u*.11);
-  } else {
-    if (v === 1){
-      g.fillStyle = gh.fright ? dark : '#7d8794';
-      g.beginPath(); g.moveTo(-u*.46, -u*.2); g.lineTo(u*.12, -u*.2); g.lineTo(u*.1, u*.06); g.lineTo(-u*.42, u*.06); g.closePath(); g.fill();
-      g.fillStyle = dark; g.fillRect(-u*.44, u*.03, u*.6, u*.09);
-    } else {
-      const top = v === 2 ? -u*.2 : -u*.32;
-      g.fillStyle = body; rr(g, -u*.44, top, u*.62, u*.16 - top, u*.05); g.fill();
-      g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = Math.max(1, u*.025);
-      g.beginPath(); for (let k=1;k<4;k++){ const x = -u*.44 + k*u*.15; g.moveTo(x, top + u*.05); g.lineTo(x, u*.02); } g.stroke();
-      if (v === 2){
-        g.strokeStyle = gh.fright ? '#9aa3b2' : '#ffd23f'; g.lineWidth = Math.max(1.5, u*.06); g.lineCap = 'round';
-        g.beginPath(); g.moveTo(u*.1, top); g.lineTo(-u*.08, top - u*.14); g.lineTo(-u*.42, top - u*.1); g.stroke();
-      }
-    }
-    g.fillStyle = body; rr(g, u*.16, -u*.26, u*.28, u*.42, u*.06); g.fill();
-    g.fillStyle = glass; g.fillRect(u*.27, -u*.21, u*.13, u*.15);
-  }
-  g.fillStyle = stripe; g.fillRect(-u*.44, u*.04, u*.88, u*.045);
-  wheel(g, -u*.24, u*.23, u*.14, s); wheel(g, u*.26, u*.23, u*.14, s);
-  if (gh.fright){
-    g.fillStyle = '#56627a'; g.fillRect(lx, ly, u*.24, u*.08);
-  } else {
-    const a = Math.sin(t*16 + v) > 0;
-    g.fillStyle = a ? '#3d8bff' : '#16346b'; g.fillRect(lx, ly, u*.12, u*.08);
-    g.fillStyle = a ? '#16346b' : '#3d8bff'; g.fillRect(lx + u*.12, ly, u*.12, u*.08);
-    g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(lx + (a ? u*.06 : u*.18), ly, u*.2, 0, Math.PI*2); g.fill();
-  }
+  if (gh.mode === 'eaten'){ eatenTruck(g, s, t); g.restore(); return; }
+  drawThwC(g, s, THW_KIND[gh.id] || 'gkw', pal, t + gh.id);
   g.restore();
 }
 function drawBagger(g, cx, cy, s, dir, anim, t){
   g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
-  const u = s, sw = (Math.sin(anim) + 1) / 2;
-  g.fillStyle = '#22262d'; rr(g, -u*.42, u*.1, u*.72, u*.2, u*.1); g.fill();
-  g.fillStyle = '#5d6672'; for (let k = 0; k < 4; k++){ g.beginPath(); g.arc(-u*.31 + k*u*.17, u*.2, u*.05, 0, Math.PI*2); g.fill(); }
-  g.fillStyle = '#173f91'; rr(g, -u*.46, -u*.12, u*.14, u*.22, u*.04); g.fill();
-  g.fillStyle = COL.thw; rr(g, -u*.36, -u*.14, u*.48, u*.25, u*.04); g.fill();
-  rr(g, -u*.04, -u*.4, u*.22, u*.38, u*.04); g.fill();
-  g.fillStyle = 'rgba(175,212,255,.9)'; g.fillRect(u*.01, -u*.35, u*.13, u*.15);
-  g.fillStyle = '#f4f6fa'; g.fillRect(-u*.36, u*.03, u*.48, u*.03);
-  const ex = u*.36, ey = -u*(.42 - .12*sw), bx = u*.54, by = u*(.0 + .1*sw);
-  g.strokeStyle = '#173f91'; g.lineWidth = u*.08; g.lineCap = 'round'; g.lineJoin = 'round';
-  g.beginPath(); g.moveTo(u*.12, -u*.08); g.lineTo(ex, ey); g.lineTo(bx, by - u*.06); g.stroke();
-  g.fillStyle = '#9aa4b1';
-  g.beginPath(); g.moveTo(bx - u*.06, by - u*.1); g.lineTo(bx + u*.08, by - u*.06); g.lineTo(bx + u*.04, by + u*.12); g.lineTo(bx - u*.08, by + u*.06); g.closePath(); g.fill();
+  const u = s, pal = PAL.thw, sw = (Math.sin(anim) + 1) / 2;
+  g.fillStyle = '#16181d'; rr(g, -u*.44, u*.06, u*.74, u*.22, u*.11); g.fill();
+  g.fillStyle = '#2f343d'; rr(g, -u*.41, u*.09, u*.68, u*.16, u*.08); g.fill();
+  g.fillStyle = '#8f99a8'; for (let k = 0; k < 4; k++){ g.beginPath(); g.arc(-u*.31 + k*u*.16, u*.17, u*.045, 0, Math.PI*2); g.fill(); }
+  g.fillStyle = '#5b6575'; for (let k = 0; k < 12; k++){ const x = -u*.42 + ((k*u*.062 + WHEEL_ROT*u*.02) % (u*.72)); g.fillRect(x, u*.055, u*.025, u*.025); }
+  const ex = u*.4, ey = -u*(.44 - .12*sw), bx = u*.58, by = u*(.02 + .1*sw);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = pal.dark; g.lineWidth = u*.075; g.beginPath(); g.moveTo(u*.1, -u*.1); g.lineTo(ex, ey); g.lineTo(bx, by - u*.06); g.stroke();
+  g.strokeStyle = '#c9ced6'; g.lineWidth = Math.max(1, u*.018); g.beginPath(); g.moveTo(u*.14, -u*.06); g.lineTo(ex - u*.02, ey + u*.06); g.stroke();
+  g.fillStyle = vGrad(g, by - u*.1, by + u*.13, '#d3d9e2', '#7d8794'); g.beginPath(); g.moveTo(bx - u*.07, by - u*.1); g.lineTo(bx + u*.09, by - u*.05); g.lineTo(bx + u*.04, by + u*.13); g.lineTo(bx - u*.09, by + u*.06); g.closePath(); g.fill();
+  g.fillStyle = pal.dark; rr(g, -u*.48, -u*.16, u*.18, u*.24, u*.04); g.fill();
+  g.fillStyle = vGrad(g, -u*.18, u*.09, pal.hi, pal.base); rr(g, -u*.36, -u*.18, u*.5, u*.27, u*.04); g.fill();
+  g.fillStyle = vGrad(g, -u*.46, -u*.14, pal.hi, pal.base); rr(g, -u*.06, -u*.46, u*.26, u*.32, u*.04); g.fill();
+  g.fillStyle = dGlass(g, -u*.42, -u*.2, false); g.fillRect(u*.0, -u*.41, u*.17, u*.21);
+  g.fillStyle = pal.stripe; g.fillRect(-u*.36, u*.0, u*.5, u*.03);
   const on = Math.sin(t*9) > -.2;
-  g.fillStyle = on ? COL.beacon : '#7a5a14';
-  g.beginPath(); g.ellipse(u*.07, -u*.42, u*.06, u*.045, 0, Math.PI, 0); g.fill();
-  if (on){ g.fillStyle = 'rgba(255,182,39,.22)'; g.beginPath(); g.arc(u*.07, -u*.44, u*.18, 0, Math.PI*2); g.fill(); }
+  g.fillStyle = on ? '#ffc04d' : '#7a5a14'; g.beginPath(); g.ellipse(u*.06, -u*.47, u*.055, u*.05, 0, Math.PI, 0); g.fill();
+  if (on){ g.fillStyle = 'rgba(255,182,39,.2)'; g.beginPath(); g.arc(u*.06, -u*.5, u*.12, 0, Math.PI*2); g.fill(); }
   g.restore();
 }
 function drawVehicle(g, cx, cy, s, dir, anim, t, vid){
