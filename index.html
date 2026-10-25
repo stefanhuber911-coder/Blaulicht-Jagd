@@ -133,6 +133,22 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
 .splash .menu{position:absolute;top:max(8px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));appearance:none;border:1px solid var(--wall-edge);background:rgba(5,7,12,.75);color:var(--ink);font-family:var(--f-ui);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:7px 12px;border-radius:999px;cursor:pointer}
 @keyframes tapPulse{50%{opacity:.6}}
 @media (prefers-reduced-motion:reduce){.hot.mode[aria-pressed="true"]{animation:none}}
+.card{background:linear-gradient(180deg,#18223a 0%,#131b29 55%,#10161f 100%);border:2px solid #2f4a78;box-shadow:0 6px 0 rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04) inset}
+.overlay:not([hidden]) .card{animation:cardIn .28s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.logo{display:flex;flex-wrap:wrap;gap:0 .3em;font-size:36px!important;line-height:1.05!important;filter:drop-shadow(0 3px 0 #0b1019) drop-shadow(0 0 10px rgba(61,139,255,.35))}
+.logo .lb{background:linear-gradient(180deg,#a8dcff,#2f7fef);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo .lj{background:linear-gradient(180deg,#ffe86f,#ff9a1f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cta{border:2px solid #0b1019!important;box-shadow:0 4px 0 #0b1019;transition:transform .08s,box-shadow .08s}
+.cta:active{transform:translateY(3px)!important;box-shadow:0 1px 0 #0b1019}
+.cta.ghost{box-shadow:0 3px 0 rgba(0,0,0,.5);border-color:#2f4a78!important}
+.seg button[aria-checked="true"]{box-shadow:0 2px 0 rgba(0,0,0,.45)}
+.num.bump{animation:bump .35s ease-out}
+@keyframes bump{40%{transform:scale(1.25)}}
+.card.tight .logo{font-size:28px!important}
+.splash:not([hidden]){animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.overlay:not([hidden]) .card,.num.bump,.splash:not([hidden]){animation:none}}
 @media (max-width:380px){.funk{font-size:12px;line-height:1.1;border-left:3px solid var(--beacon)}.funk .tag{display:none}}
 @media (max-height:620px){.funk{font-size:12px}.pad:not(.cross){grid-template-rows:44px}.num{font-size:21px}}
 @media (prefers-reduced-motion:reduce){.cta:active{transform:none}}
@@ -169,10 +185,11 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
     <img class="bg" id="splashBg" alt="">
     <div class="shot" id="shot">
       <img id="splashImg" src="splash.jpg" alt="Blaulicht-Jagd: Startbild mit THW-Radlader und Feuerwehrautos">
-      <button class="hot" id="hotStart" style="left:21.8%;top:77.6%;width:55.8%;height:10.4%" aria-label="Start"></button>
-      <button class="hot mode" id="hotThw" data-r="thw" style="left:6.6%;top:89.8%;width:34.6%;height:6.6%" aria-label="Modus 1: THW sammelt, Feuerwehr verfolgt"></button>
-      <button class="hot" id="hotSwap" style="left:43%;top:89.4%;width:13.8%;height:6.9%" aria-label="Modi umschalten"></button>
-      <button class="hot mode" id="hotFw" data-r="fw" style="left:58.8%;top:89.8%;width:34.7%;height:6.6%" aria-label="Modus 2: Feuerwehr sammelt, THW verfolgt"></button>
+      <button class="hot" id="hotStart" style="left:21.3%;top:73.6%;width:56.9%;height:10.5%" aria-label="Start"></button>
+      <button class="hot mode" id="hotThw" data-r="thw" style="left:3.7%;top:84.3%;width:37.7%;height:6.7%" aria-label="Modus 1: THW sammelt, Feuerwehr verfolgt"></button>
+      <button class="hot" id="hotSwap" style="left:42.5%;top:84.3%;width:14.9%;height:6.7%" aria-label="Modi umschalten"></button>
+      <button class="hot" id="hotBonus" style="left:3.2%;top:91.6%;width:93%;height:7.2%" aria-label="Bonuslevel Rettungsdienst spielen"></button>
+      <button class="hot mode" id="hotFw" data-r="fw" style="left:58.7%;top:84.3%;width:37.8%;height:6.7%" aria-label="Modus 2: Feuerwehr sammelt, THW verfolgt"></button>
     </div>
     <button class="menu" id="splashMenu">Menü</button>
   </div>
@@ -195,7 +212,7 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
 'use strict';
 /* ---------- Maps: one per Einsatz ('~' = river, drawn as water, solid like a wall) ---------- */
 const LEVEL_MAPS = [
-  {name:'Baustelle', wall:'#22324c', edge:'#46659a', rows:[
+  {name:'Baustelle', wall:'#26313f', edge:'#c9a227', floor:'kies', mat:'bauzaun', rows:[
     "#################",
     "#o......#......o#",
     "#.##.##.#.##.##.#",
@@ -217,7 +234,7 @@ const LEVEL_MAPS = [
     "#.######.######.#",
     "#...............#",
     "#################"]},
-  {name:'Wache', wall:'#3a2430', edge:'#a0505e', rows:[
+  {name:'Wache', wall:'#5a2a2e', edge:'#b0646e', floor:'beton', mat:'ziegel', rows:[
     "#################",
     "#o.............o#",
     "#.#####.#.#####.#",
@@ -239,7 +256,29 @@ const LEVEL_MAPS = [
     "#.###.#.#.#.###.#",
     "#...............#",
     "#################"]},
-  {name:'Ortschaft', wall:'#243a2c', edge:'#5f9468', rows:[
+  {name:'Altstadt', wall:'#463e55', edge:'#8d7cb8', floor:'pflaster', mat:'putz', rescue:true, rows:[
+    "#################",
+    "#o...#.....#...o#",
+    "#.#.....#.....#.#",
+    "#.#.###.#.###.#.#",
+    "#...#...#...#...#",
+    "#...#.#...#.#...#",
+    "#####.#.#.#.#####",
+    "####.........####",
+    "####.###-###.####",
+    "    .#GGGGG#.    ",
+    "####.#######.####",
+    "####.........####",
+    "####.#.###.#.####",
+    "#...............#",
+    "#.##.##.#.##.##.#",
+    "#o......P......o#",
+    "##.#.##.#.##.#.##",
+    "#...............#",
+    "#.#...#.#.#...#.#",
+    "#...............#",
+    "#################"]},
+  {name:'Ortschaft', wall:'#1f3d24', edge:'#5f9468', floor:'asphalt', mat:'hecke', rows:[
     "#################",
     "#o..#.......#..o#",
     "#.#.#.##.##.#.#.#",
@@ -261,7 +300,7 @@ const LEVEL_MAPS = [
     "#.#.#.#.#.#.#.#.#",
     "#...............#",
     "#################"]},
-  {name:'Industriegebiet', wall:'#35302a', edge:'#9a8455', rows:[
+  {name:'Industriegebiet', wall:'#4a453c', edge:'#a08a58', floor:'industrie', mat:'wellblech', rows:[
     "#################",
     "#o.............o#",
     "#.####.#.#.####.#",
@@ -321,13 +360,13 @@ if (isNaN(parseInt(store.get('radlader-tempo','1'),10))) tempo = 1;
 let role = store.get('radlader-role','thw') === 'fw' ? 'fw' : 'thw';
 const ROLES = {
   thw: {name:'THW', eyebrow:'Nachteinsatz auf der Baustelle', h1:'Radlader-Einsatz',
-    intro:'Räum in vier Einsätzen den Schotter weg. Bei jedem Einsatz kommt ein Feuerwehrauto dazu.',
+    intro:'Vier Einsätze gegen die Feuerwehr und dazwischen ein Bonuslevel als Rettungsdienst. Von Einsatz zu Einsatz wird es härter.',
     legend:['Schotter','Sandsack: Feuerwehr flüchtet','Feuerwehr abschleppen','Dieselkanister','B5-Alarm: Feuerwehr 8 s beim Großbrand'],
     alarm:'B5-Alarm!', away:'Großbrand', clear:'Baustelle geräumt', overH:'Abgeschleppt!',
     overP:'Die Feuerwehr war schneller. Noch eine Schicht?',
     winP:'Die Baustelle ist geräumt, die Feuerwehr hat Feierabend. Der Radlader darf in die Halle.', bestKey:'radlader-best'},
   fw: {name:'Feuerwehr', eyebrow:'Nachteinsatz im Brandgebiet', h1:'Löschzug-Einsatz',
-    intro:'Lösch in vier Einsätzen alle Glutnester. Bei jedem Einsatz kommt ein THW-Fahrzeug dazu.',
+    intro:'Vier Einsätze gegen das THW und dazwischen ein Bonuslevel als Rettungsdienst. Von Einsatz zu Einsatz wird es härter.',
     legend:['Glutnest','Hydrant: THW flüchtet','THW überholen','Dieselkanister','Hochwasser-Alarm: THW 8 s am Deich'],
     alarm:'Hochwasser!', away:'Deichwache', clear:'Brand gelöscht', overH:'Ausgebremst!',
     overP:'Das THW war schneller. Noch eine Schicht?',
@@ -356,6 +395,8 @@ const BADGES = [
   {id:'schmier', n:{thw:'Schmiermaxe', fw:'Schmiermaxe'}, d:'Einen Verfolger in die Ölspur gelockt'},
   {id:'nacht', n:{thw:'Nachtsicht', fw:'Nachtsicht'}, d:'Einen Stromausfall ohne Lebensverlust überstanden'},
   {id:'sieg', n:{thw:'Gesamtsieg', fw:'Gesamtsieg'}, d:'Alle 4 Einsätze geschafft'},
+  {id:'retter', n:{thw:'Lebensretter', fw:'Lebensretter'}, d:'Im Bonuslevel alle 8 Personen gerettet'},
+  {id:'versorger', n:{thw:'Versorger', fw:'Versorger'}, d:{thw:'Im Bonuslevel geschafft, ohne dass eine THW-Einheit erschöpft war', fw:'Im Bonuslevel geschafft, ohne dass eine Feuerwehr-Einheit erschöpft war'}},
   {id:'leit', n:{thw:'Leitstellen-Liebling', fw:'Leitstellen-Liebling'}, d:'Gesamtsieg auf Tempo „Rasant“'}
 ];
 const bName = b => b.n[role];
@@ -382,7 +423,10 @@ const FUNK = {
     tow:['Abschleppdienst meldet: Löschfahrzeug sichergestellt.','Feuerwehr auf dem Haken. Ab in die Wache.'],
     death:['Radlader 1 meldet: abgeschleppt. Ersatzfahrzeug rückt aus.','Leitstelle: Radlader 1 außer Dienst. Nächstes Fahrzeug!'],
     clear:['Baufeld geräumt. Radlader 1, saubere Arbeit.','Leitstelle: Abschnitt frei. Nächster Einsatz wartet.'],
-    can:['Diesel nachgetankt. Weiter geht es.','Radlader 1 vollgetankt. Danke für den Kanister.']
+    can:['Diesel nachgetankt. Weiter geht es.','Radlader 1 vollgetankt. Danke für den Kanister.'],
+    rescue:['Leitstelle an RTW 1: Hochwasser in der Altstadt. Personen retten und das THW versorgen!','Pegel steigt in der Altstadt. RTW 1, Personen raus, Versorgung zum THW!'],
+    tired:['THW meldet: Kräfte am Ende, brauchen Versorgung!','Pumpe steht, Helfer erschöpft. Bitte Versorgung!'],
+    lose:['Deich gebrochen, Altstadt überflutet. Alle Kräfte raus!']
   },
   fw: {
     start:['Leitstelle an Löschzug 1: Glutnester löschen, THW im Anmarsch.','Löschzug 1, Schicht beginnt. Lass dich nicht ausbremsen.','Leitstelle: Brandgebiet freigegeben. Viel Erfolg, Löschzug 1.'],
@@ -391,7 +435,10 @@ const FUNK = {
     tow:['Löschzug 1 meldet: THW-Fahrzeug überholt.','THW überholt. Ab in die Unterkunft.'],
     death:['Löschzug 1 meldet: ausgebremst. Ersatzfahrzeug rückt aus.','Leitstelle: Löschzug 1 außer Dienst. Nächstes Fahrzeug!'],
     clear:['Brandabschnitt gelöscht. Löschzug 1, saubere Arbeit.','Leitstelle: Abschnitt frei. Nächster Einsatz wartet.'],
-    can:['Diesel nachgetankt. Weiter geht es.','Löschzug 1 vollgetankt. Danke für den Kanister.']
+    can:['Diesel nachgetankt. Weiter geht es.','Löschzug 1 vollgetankt. Danke für den Kanister.'],
+    rescue:['Leitstelle an RTW 1: Großbrand in der Altstadt. Personen retten und die Feuerwehr versorgen!','Feuer breitet sich aus. RTW 1, Personen raus, Versorgung zur Feuerwehr!'],
+    tired:['Löschzug meldet: Kräfte am Ende, brauchen Versorgung!','Atemschutz leer, Trupp erschöpft. Bitte Versorgung!'],
+    lose:['Brand außer Kontrolle. Alle Kräfte zurückziehen!']
   },
   both: {
     kat:['Katastrophenalarm. Alle Kräfte zum Deich, Streit später.','Leitstelle: Pegel steigt. THW und Feuerwehr gemeinsam an den Deich!'],
@@ -403,7 +450,14 @@ const FUNK = {
     dark:['Stromausfall im ganzen Abschnitt! Scheinwerfer an.','Leitstelle: Netzausfall. Fahren nur auf Sicht!'],
     darkEnd:['Strom ist wieder da. Licht an!','Netz wieder stabil. Gute Fahrt.'],
     crash:['Verkehrsunfall gemeldet. Gang wird gesperrt.','Leitstelle: Unfallstelle, bitte Umleitung fahren!'],
-    crashEnd:['Unfallstelle geräumt. Gang wieder frei.','Abschleppdienst fertig. Strecke frei.']
+    crashEnd:['Unfallstelle geräumt. Gang wieder frei.','Abschleppdienst fertig. Strecke frei.'],
+    saved:['Patient in der Klinik übergeben. Weiter so!','Rettungsdienst übernimmt. Nächste Person!','Eine weitere Person in Sicherheit.'],
+    danger:['Leitstelle: Eine Person wird eingeschlossen, bitte beeilen!','Achtung, Person in Gefahr. Sofort hin!'],
+    lost:['Person eingeschlossen. Kein Zugang mehr.','Leitstelle: Wir verlieren den Zugang zu einer Person.'],
+    allSaved:['Alle Personen in Sicherheit. Starke Leistung!','Leitstelle: Alle gerettet. Hut ab!'],
+    rescueOk:['Rettung abgeschlossen. Gute Arbeit.'],
+    rescueFail:['Bonus beendet. Zu viele Personen eingeschlossen.'],
+    supplied:['Versorgung angekommen, weiter geht es!','Danke, RTW 1! Neue Kraft.']
   }
 };
 const funkLast = {};
@@ -419,6 +473,10 @@ function funk(key){
   $('funk').hidden = false; funkT = 3.6;
 }
 let toastT = 0;
+function showNote(text){
+  const el = $('toast'); el.innerHTML = ''; const t = document.createElement('div'); t.textContent = text; el.appendChild(t);
+  el.hidden = false; toastT = 3.2;
+}
 function showToast(b, isNew){
   const el = $('toast');
   el.innerHTML = '';
@@ -558,9 +616,14 @@ let state = 'title', stateT = 0, prevState = null;
 let score = 0, best = parseInt(store.get(R().bestKey,'0'),10) || 0, lives = 3, level = 1;
 let phaseIdx = 0, phaseT = 0, frightT = 0, chain = 0, freezeT = 0, playT = 0;
 let bonus = null, bonusSpawned = 0;
-const MAX_LEVEL = 4;
+const MAX_LEVEL = 5;
+const LEVEL_TRUCKS = [2, 3, 0, 4, 5];
+const EINSATZ_N = 4, BONUS_LEVEL = 3;
+const dispLevel = () => level < BONUS_LEVEL ? level : level === BONUS_LEVEL ? null : level - 1;
+const levelLabel = () => dispLevel() == null ? 'Bonus' : `${dispLevel()}/${EINSATZ_N}`;
 const WACHE_T = 6; // seconds a towed truck stays locked in the station
-const truckCount = () => Math.min(level + 1, 5);
+const truckCount = () => LEVEL_TRUCKS[Math.min(Math.max(level, 1), MAX_LEVEL) - 1];
+const isRescue = () => !!curMap.rescue;
 let b5 = null, b5Plan = -1, awayT = 0, alarmT = 0, levelIntro = false;
 let hornCool = 3;
 let lostThisLevel = false, b5ThisLevel = false, frightTotal = 0, frightEaten = 0;
@@ -581,9 +644,193 @@ const EVENTS = {
   crash: {title:'Unfallstelle!', sub:'Ein Gang ist gesperrt, Umleitung fahren', label:'Unfallstelle', dur:20}
 };
 let evPlan = {}, evAt = -1, ev = null;
+/* ---------- Rescue mission: bring 8 people to the assembly point while fire / rubble spreads ---------- */
+const RESCUE_N = 8, RESCUE_OK = 5, DANGER_T = 15, SAMMEL = {x:8, y:15}, VERS = {x:8, y:1};
+const KRAFT_TIME = 14, WORK_T = 2, UNIT_V = 3.6, SPREAD_N = 1, HAZ_LIMIT = .4;
+let rescue = null;   // {persons:[{x,y,state:'wait'|'carried'|'saved'|'lost', dangerT}], haz:Set, spreadT, interval, saved, lost, failed, introT}
+const key = (x, y) => y*W + x;
+function bfsFrom(x0, y0, extraBlock, block2){
+  const seen = new Set([key(x0, y0)]), q = [[x0, y0]];
+  for (let i = 0; i < q.length; i++){
+    const [x, y] = q[i];
+    for (let d = 0; d < 4; d++){
+      const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny);
+      if (!passM(nx, ny) || seen.has(k) || rescue.haz.has(k) || k === extraBlock || k === block2) continue;
+      seen.add(k); q.push([nx, ny]);
+    }
+  }
+  return seen;
+}
+function setupRescue(){
+  rescue = {persons:[], haz:new Set(), spreadT:3, interval:1.5, saved:0, lost:0, failed:false, introT:2.8, done:false, burned:false, src:new Set(), everTired:false, supplies:0, units:[], openN:0};
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (passM(x, y) && !inHouseZone(x, y)) rescue.openN++;
+  rescue.units = [{x:4,y:7},{x:8,y:7},{x:12,y:7}].map((p, i) => ({id:i, tx:p.x, ty:p.y, dir:-1, prog:0, kraft:100, state:'drive', workT:WORK_T, aim:null, target:null}));
+  // distance from the start for spreading people out
+  const dist = new Map([[key(SAMMEL.x, SAMMEL.y), 0]]), q = [[SAMMEL.x, SAMMEL.y]];
+  for (let i = 0; i < q.length; i++){ const [x, y] = q[i]; for (let d = 0; d < 4; d++){ const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny); if (passM(nx, ny) && !dist.has(k) && k !== key(VERS.x, VERS.y)){ dist.set(k, dist.get(key(x, y)) + 1); q.push([nx, ny]); } } }
+  const cands = [];
+  dist.forEach((d, k) => { const x = k % W, y = (k / W) | 0; if (d >= 5 && !inHouseZone(x, y) && !(y === TUN_Y && (x < 2 || x > 14)) && grid[y][x] !== 'o' && Math.abs(x - VERS.x) + Math.abs(y - VERS.y) >= 2) cands.push({x, y, d}); });
+  // farthest-point sampling with a little randomness
+  const pick = [];
+  const far = cands.filter(c => c.d >= 12);
+  pick.push((far.length ? far : cands)[(Math.random() * (far.length || cands.length)) | 0]);
+  while (pick.length < RESCUE_N && pick.length < cands.length){
+    const scored = cands.filter(c => !pick.includes(c)).map(c => ({c, m: Math.min(...pick.map(p => Math.abs(p.x - c.x) + Math.abs(p.y - c.y)))}));
+    scored.sort((a, b) => b.m - a.m);
+    pick.push(scored[(Math.random() * Math.min(3, scored.length)) | 0].c);
+  }
+  rescue.persons = pick.map(c => ({x:c.x, y:c.y, state:'wait', dangerT:0}));
+  // fire / rubble starts at three spots far from the player and from people
+  const seeds = cands.filter(c => c.d >= 9 && c.y >= 3 && Math.abs(c.x - VERS.x) + Math.abs(c.y - VERS.y) >= 4 && rescue.persons.every(p => Math.abs(p.x - c.x) + Math.abs(p.y - c.y) >= 3));
+  for (let i = 0; i < 3 && seeds.length;){
+    const j = (Math.random() * seeds.length) | 0, s0 = seeds.splice(j, 1)[0];
+    /* a source must not cut anyone off: people via the clinic without VS, and VS itself */
+    rescue.haz.add(key(s0.x, s0.y));
+    const ok1 = bfsFrom(SAMMEL.x, SAMMEL.y, -1, key(VERS.x, VERS.y)), ok2 = bfsFrom(SAMMEL.x, SAMMEL.y, -1);
+    if (!rescue.persons.every(p => ok1.has(key(p.x, p.y))) || !ok2.has(key(VERS.x, VERS.y))){ rescue.haz.delete(key(s0.x, s0.y)); continue; }
+    rescue.src.add(key(s0.x, s0.y)); i++;
+    for (let k = seeds.length - 1; k >= 0; k--) if (Math.abs(seeds[k].x - s0.x) + Math.abs(seeds[k].y - s0.y) < 6) seeds.splice(k, 1);
+  }
+}
+function spreadHazard(){
+  const pt = ptile(), nx0 = player.dir >= 0 ? {x: wrapX(player.tx + DX[player.dir]), y: player.ty + DY[player.dir]} : pt;
+  const banned = new Set([key(SAMMEL.x, SAMMEL.y), key(8, 7), key(pt.x, pt.y), key(nx0.x, nx0.y), key(player.tx, player.ty)]);
+  for (let d = 0; d < 4; d++) banned.add(key(wrapX(pt.x + DX[d]), pt.y + DY[d]));
+  ghosts.forEach(g => { if (g.mode === 'off') return; banned.add(key(g.tx, g.ty)); if (g.dir >= 0) banned.add(key(wrapX(g.tx + DX[g.dir]), g.ty + DY[g.dir])); });
+  rescue.persons.forEach(p => banned.add(key(p.x, p.y)));
+  banned.add(key(VERS.x, VERS.y));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (Math.abs(x - SAMMEL.x) + Math.abs(y - SAMMEL.y) <= 4) banned.add(key(x, y));
+  rescue.units.forEach(u => { banned.add(key(u.tx, u.ty)); if (u.dir >= 0) banned.add(key(wrapX(u.tx + DX[u.dir]), u.ty + DY[u.dir])); });
+  const front = [];
+  rescue.haz.forEach(k => {
+    const x = k % W, y = (k / W) | 0;
+    for (let d = 0; d < 4; d++){
+      const nx = wrapX(x + DX[d]), ny = y + DY[d], nk = key(nx, ny);
+      if (!passM(nx, ny) || rescue.haz.has(nk) || banned.has(nk) || inHouseZone(nx, ny) || ny === TUN_Y) continue;
+      front.push(nk);
+    }
+  });
+  // the fire / rubble creeps towards the people who still wait, with some randomness
+  const waiting = rescue.persons.filter(p => p.state === 'wait');
+  const score = k => { const x = k % W, y = (k / W) | 0; return (waiting.length ? Math.min(...waiting.map(p => Math.abs(p.x - x) + Math.abs(p.y - y))) : 0) + Math.random() * 5; };
+  const order = [...new Set(front)].map(k => [k, score(k)]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
+  front.length = 0; front.push(...order);
+  const need = [key(SAMMEL.x, SAMMEL.y), key(VERS.x, VERS.y), ...waiting.map(p => key(p.x, p.y))];
+  for (const k of front){
+    const seen = bfsFrom(player.tx, player.ty, k);
+    if (!need.every(n => seen.has(n))) continue;
+    /* waiting people must stay reachable from the clinic without passing VS (else the crate gets in the way) */
+    const viaClinic = bfsFrom(SAMMEL.x, SAMMEL.y, k, key(VERS.x, VERS.y));
+    if (waiting.every(p => viaClinic.has(key(p.x, p.y)))){ rescue.haz.add(k); return; }
+  }
+}
+function clearHazardAround(x0, y0, r){
+  let n = 0;
+  rescue.haz.forEach(k => { const x = k % W, y = (k / W) | 0; if (!rescue.src.has(k) && Math.max(Math.abs(x - x0), Math.abs(y - y0)) <= r){ rescue.haz.delete(k); n++; } });
+  if (n) floats.push({x:x0, y:y0 - 1, text: role === 'fw' ? 'Gelöscht!' : 'Abgepumpt!', t:0});
+}
+function rescueTick(dt){
+  if (rescue.introT > 0) rescue.introT -= dt;
+  rescue.spreadT -= dt;
+  if (rescue.spreadT <= 0){
+    for (let i = 0; i < SPREAD_N; i++) spreadHazard();
+    rescue.interval = Math.max(.7, 1.5 - rescue.haz.size * .015) / TEMPI[tempo].m;
+    rescue.spreadT = rescue.interval;
+    if (rescue.haz.size >= rescue.openN * HAZ_LIMIT){
+      rescue.done = true; rescue.burned = true; funk('lose'); sfx.katFail();
+      rescue.persons.forEach(p => { if (p.state === 'wait'){ p.state = 'lost'; rescue.lost++; } });
+      if (player.person != null){ rescue.persons[player.person].state = 'lost'; rescue.lost++; player.person = null; }
+      if (rescue.saved >= RESCUE_OK){ lives++; renderLives(); }
+      setState('clear'); return;
+    }
+  }
+  rescue.units.forEach(u => unitTick(u, dt));
+  // hand a supply crate to a unit next to the ambulance
+  if (player.crate){
+    const pp = pos(player); let best = null;
+    rescue.units.forEach(u => { const q = pos(u); if (u.kraft < 75 && Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) < 1.1 && (!best || u.kraft < best.kraft)) best = u; });
+    if (best){
+      best.kraft = 100; if (best.state === 'tired'){ best.state = 'drive'; best.dir = -1; }
+      player.crate = false; rescue.supplies++; addScore(100);
+      floats.push({x:best.tx, y:best.ty - .8, text:'100', t:0}); sfx.load(); funk('supplied');
+    }
+  }
+  rescue.persons.forEach(p => {
+    if (p.state !== 'wait') return;
+    let near = false;
+    for (let d = 0; d < 4; d++) if (rescue.haz.has(key(wrapX(p.x + DX[d]), p.y + DY[d]))) near = true;
+    if (near){
+      if (p.dangerT <= 0){ p.dangerT = DANGER_T / TEMPI[tempo].m; funk('danger'); }
+      else { p.dangerT -= dt; if (p.dangerT <= 0){ p.state = 'lost'; rescue.lost++; p.dangerT = 0; funk('lost'); sfx.katFail(); checkRescueEnd(); } }
+    } else p.dangerT = 0;
+  });
+}
+function checkRescueEnd(){
+  if (rescue.done || rescue.persons.some(p => p.state === 'wait' || p.state === 'carried')) return;
+  rescue.done = true;
+  if (rescue.saved >= RESCUE_OK){
+    if (rescue.saved === RESCUE_N){ addScore(2000); award('retter'); funk('allSaved'); } else funk('rescueOk');
+    if (!rescue.everTired) award('versorger');
+    setState('clear'); sfx.clear(); lives++; renderLives();
+    floats.push({x:player.tx, y:player.ty - 1.2, text:'+1 Leben', t:0});
+  } else {
+    funk('rescueFail'); sfx.katFail();
+    setState('clear');
+  }
+}
+// allied units: drive to the edge of the fire / flood, fight it, get tired without supplies
+const hazNext = (x, y) => { for (let d = 0; d < 4; d++){ const k = key(wrapX(x + DX[d]), y + DY[d]); if (rescue.haz.has(k) && !rescue.src.has(k)) return true; } return false; };
+function unitTick(u, dt){
+  if (u.state === 'tired') return;
+  if (u.state === 'work'){
+    if (!hazNext(u.tx, u.ty)){ u.state = 'drive'; u.aim = null; u.dir = -1; return; }
+    u.kraft -= dt * 100 / KRAFT_TIME * TEMPI[tempo].m;
+    if (u.kraft <= 0){ u.kraft = 0; u.state = 'tired'; u.aim = null; rescue.everTired = true; funk('tired'); return; }
+    u.workT -= dt;
+    if (u.workT <= 0){
+      u.workT = WORK_T;
+      // fight the neighbouring hazard tile that is closest to a waiting person
+      const waiting = rescue.persons.filter(p => p.state === 'wait');
+      let bestK = -1, bv = Infinity;
+      for (let d = 0; d < 4; d++){
+        const nx = wrapX(u.tx + DX[d]), ny = u.ty + DY[d], k = key(nx, ny);
+        if (!rescue.haz.has(k) || rescue.src.has(k)) continue;
+        const v = waiting.length ? Math.min(...waiting.map(p => Math.abs(p.x - nx) + Math.abs(p.y - ny))) : 0;
+        if (v < bv){ bv = v; bestK = k; }
+      }
+      if (bestK >= 0){ rescue.haz.delete(bestK); u.aim = bestK; }
+    }
+    return;
+  }
+  move(u, UNIT_V * TEMPI[tempo].m * dt, unitArrive);
+}
+function unitArrive(u){
+  if (u.kraft > 0 && hazNext(u.tx, u.ty)){ u.state = 'work'; u.dir = -1; u.prog = 0; u.workT = WORK_T * .5; return; }
+  // path to the nearest free spot at the hazard front, not taken by another unit
+  const claimed = new Set();
+  rescue.units.forEach(o => { if (o === u) return; claimed.add(key(o.tx, o.ty)); if (o.target != null) claimed.add(o.target); });
+  const start = key(u.tx, u.ty), par = new Map([[start, -1]]), q = [[u.tx, u.ty]];
+  let goal = -1;
+  for (let i = 0; i < q.length && goal < 0; i++){
+    const [x, y] = q[i];
+    for (let d = 0; d < 4; d++){
+      const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny);
+      if (par.has(k) || !canPlayer(nx, ny)) continue;
+      par.set(k, key(x, y)); q.push([nx, ny]);
+      if (hazNext(nx, ny) && !claimed.has(k)){ goal = k; break; }
+    }
+  }
+  u.target = goal >= 0 ? goal : null;
+  if (goal < 0){ u.dir = -1; return; }
+  let k = goal; while (par.get(k) !== start) k = par.get(k);
+  const nx = k % W, ny = (k / W) | 0;
+  for (let d = 0; d < 4; d++) if (wrapX(u.tx + DX[d]) === nx && u.ty + DY[d] === ny){ u.dir = d; return; }
+  u.dir = -1;
+}
+
 function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function pickPlans(){
-  const lv = shuffle([1,2,3,4]);
+  const lv = shuffle([1,2,4,5]);   // internal level 3 is the bonus level
   katPlan = lv.slice(0, KAT_PER_GAME).sort();
   const types = shuffle(Object.keys(EVENTS));
   evPlan = {}; lv.slice(KAT_PER_GAME).forEach((l, i) => evPlan[l] = types[i]);
@@ -611,6 +858,12 @@ function resetGrid(){
   ev = null; evPrep();
   // B5-Alarm: appears in about four of five levels, once, somewhere between 30 and 80 percent of the gravel
   b5Plan = Math.random() < .8 ? Math.floor(pelletsTotal * (.3 + Math.random() * .5)) : -1;
+  rescue = null;
+  if (isRescue()){
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (grid[y][x] === '.') grid[y][x] = ' ';
+    pelletsTotal = pelletsLeft = 4; b5Plan = -1; katAt = -1; evAt = -1;
+    setupRescue();
+  }
 }
 function resetPositions(){
   Object.assign(player, {tx:8, ty:15, dir:-1, prog:0, want:1, face:1, anim:0});
@@ -622,6 +875,8 @@ function resetPositions(){
   b5 = null; awayT = 0; alarmT = 0; graceT = 0;
   if (kat){ kat = null; katPlan = katPlan.filter(l => l !== level); }
   player.carry = false; player.binder = false; ghosts.forEach(g => { g.carry = false; g.loadT = 0; });
+  if (rescue && player.person != null && rescue.persons[player.person]) rescue.persons[player.person].state = 'wait';
+  player.person = null; player.crate = false;
   phaseIdx = 0; phaseT = 0; frightT = 0; chain = 0; playT = 0; freezeT = 0; hornCool = 3;
   floats.length = 0;
 }
@@ -632,7 +887,7 @@ function cell(x,y){
   if (x < 0 || x >= W) return y === TUN_Y ? ' ' : '#';
   return grid[y][x];
 }
-function isBlocked(x, y){ return !!(ev && ev.block && ev.block.x === wrapX(x) && ev.block.y === y); }
+function isBlocked(x, y){ return !!(ev && ev.block && ev.block.x === wrapX(x) && ev.block.y === y) || !!(rescue && rescue.haz.has(y*W + wrapX(x))); }
 function onOil(x, y){ return !!(ev && ev.oil && ev.oil.some(o => o.x === x && o.y === y)); }
 function canPlayer(x,y){ const c = cell(wrapX(x), y); return c !== '#' && c !== '-' && c !== 'G' && !isBlocked(x, y); }
 function canGhost(x,y,g){
@@ -662,10 +917,26 @@ function reverse(e){
 
 function playerArrive(p){
   const c = grid[p.ty] && grid[p.ty][p.tx];
-  if (!kat && (c === '.' || c === 'o')){
+  if (rescue && state === 'play'){
+    if (c === 'o'){ grid[p.ty][p.tx] = ' '; addScore(50); startFright(); clearHazardAround(p.tx, p.ty, 2); }
+    if (p.person == null && !p.crate && p.tx === VERS.x && p.ty === VERS.y){ p.crate = true; sfx.load(); }
+    if (p.person == null){
+      const i = rescue.persons.findIndex(q => q.state === 'wait' && q.x === p.tx && q.y === p.ty);
+      if (i >= 0){
+        /* a crate on board stays on board: deliver it first, then fetch the person */
+        if (p.crate){ if (!(rescue.hintAt > tNow - 2.5)){ rescue.hintAt = tNow; floats.push({x:p.tx, y:p.ty - 1.2, text:'Erst Kiste abgeben', t:0}); } }
+        else { p.person = i; rescue.persons[i].state = 'carried'; rescue.persons[i].dangerT = 0; sfx.load(); }
+      }
+    } else if (p.person != null && p.tx === SAMMEL.x && p.ty === SAMMEL.y){
+      rescue.persons[p.person].state = 'saved'; p.person = null; rescue.saved++;
+      addScore(500); floats.push({x:p.tx, y:p.ty - .8, text:'500', t:0}); sfx.katWin(); funk('saved');
+      checkRescueEnd();
+    }
+  }
+  if (!rescue && !kat && (c === '.' || c === 'o')){
     grid[p.ty][p.tx] = ' ';
     pelletsLeft--; eatenCount++;
-    if (c === '.'){ addScore(10); sfx.eat(); }
+    if (c === '.'){ addScore(10); sfx.eat(); emit(4, p.tx + .5, p.ty + .5, {speed:2.2, life:.3, size:.06, kind:'spark', color:role === 'fw' ? ['#ffd47a','#ff8a1f'] : ['#e8dcc0','#bfb196']}); }
     else { addScore(50); startFright(); }
     if ((eatenCount === 60 && bonusSpawned === 0) || (eatenCount === 120 && bonusSpawned === 1)){
       bonusSpawned++; bonus = {t: 9.5, val: Math.min(100*level + 100*(bonusSpawned-1), 1000)};
@@ -920,6 +1191,7 @@ function speeds(){
 }
 function startFright(){
   sfx.power(); funk('power');
+  { const q = pos(player); emit(16, q.x + .5, q.y + .5, {speed:3.2, life:.6, size:.09, kind:'spark', color:role === 'fw' ? ['#ff4d4d','#ffffff','#7fb3ff'] : ['#cfae72','#ffffff','#ffb627']}); }
   frightT = speeds().fright; chain = 0;
   frightTotal = ghosts.filter(g => g.mode === 'active').length; frightEaten = 0;
   ghosts.forEach(g => { if (g.mode === 'active'){ if (!g.fright) reverse(g); g.fright = true; } });
@@ -928,14 +1200,19 @@ function addScore(n){
   const before = score; score += n;
   if (before < 10000 && score >= 10000){ lives++; renderLives(); sfx.bonus(); }
   if (score > best){ best = score; store.set(R().bestKey, String(best)); }
-  elScore.textContent = score; elBest.textContent = best;
+  elBest.textContent = best;
+  if (n >= 200){ elScore.classList.remove('bump'); void elScore.offsetWidth; elScore.classList.add('bump'); }
 }
 
 /* ---------- State machine ---------- */
 function setState(s){
   state = s; stateT = 0;
+  if (s === 'dying' && !reduceMotion) shakeT = .45;
+  if (s === 'won') confetti();
+  if (s === 'clear' && !(rescue && (rescue.burned || rescue.saved < RESCUE_OK))) confetti();
   if (s === 'ready') saveRun();
   if (s === 'clear'){
+    if (rescue) return;
     funk('clear');
     if (!lostThisLevel) award('kratzer');
     if (b5ThisLevel) award('alarm');
@@ -943,7 +1220,7 @@ function setState(s){
 }
 const RUN_KEY = 'radlader-run';
 function saveRun(){
-  if (!['play','ready','dying','clear','paused'].includes(state) || !grid) return;
+  if (practice || !['play','ready','dying','clear','paused'].includes(state) || !grid) return;
   store.set(RUN_KEY, JSON.stringify({t: Date.now(), role, score, lives: state === 'dying' ? lives - 1 : lives, level, eatenCount, bonusSpawned, katPlan, evPlan, flooded, grid: grid.map(r => r.join(''))}));
 }
 function loadRun(){
@@ -960,7 +1237,7 @@ function update(dt){
   stateT += dt;
   for (let i = floats.length - 1; i >= 0; i--){ floats[i].t += dt; if (floats[i].t > 1.1) floats.splice(i,1); }
 
-  if (state === 'ready'){ if (stateT > 1.8){ if (levelIntro) funk('start'); levelIntro = false; setState('play'); } return; }
+  if (state === 'ready'){ if (stateT > 1.8){ if (levelIntro) funk(isRescue() ? 'rescue' : 'start'); levelIntro = false; setState('play'); } return; }
   if (state === 'dying'){
     if (stateT > 1.6){
       lives--; renderLives();
@@ -971,6 +1248,7 @@ function update(dt){
   }
   if (state === 'clear'){
     if (stateT > 1.8){
+      if (practice){ practice = false; state = 'title'; quitToMenu(); return; }
       if (level >= MAX_LEVEL){ clearRun(); award('sieg'); if (tempo === 3) award('leit'); setState('won'); sfx.win(); showWin(); }
       else { level++; setLevelText(); levelIntro = true; loadMap(level); resetGrid(); resetPositions(); setState('ready'); }
     }
@@ -999,13 +1277,14 @@ function update(dt){
     if (kat.t >= KAT_DUR){ endKat(false); if (state !== 'play') return; }
   }
   if (ev){ ev.t += dt; if (ev.introT > 0) ev.introT -= dt; if (ev.t >= ev.dur) endEvent(); }
+  if (rescue){ rescueTick(dt); if (state !== 'play') return; }
   const inFlood = y => flooded && y >= FLOOD_ROW - .5;
 
   // player
   const slipping = ev && ev.type === 'oil' && (onOil(player.tx, player.ty) || (player.dir >= 0 && onOil(wrapX(player.tx + DX[player.dir]), player.ty + DY[player.dir])));
   if (!slipping && player.dir >= 0 && player.want === opp(player.dir) && player.prog > 0){ reverse(player); player.face = player.dir; }
   const pBefore = pos(player);
-  move(player, sp.p * (inFlood(pBefore.y) ? .55 : 1) * dt, playerArrive);
+  move(player, sp.p * (inFlood(pBefore.y) ? .55 : 1) * (player.person != null ? .9 : 1) * dt, playerArrive);
   if (state !== 'play') return;
   const pAfter = pos(player);
   if (pAfter.x !== pBefore.x || pAfter.y !== pBefore.y) player.anim += dt * 14;
@@ -1076,6 +1355,7 @@ function update(dt){
         addScore(pts); floats.push({x:q.x, y:q.y, text:String(pts), t:0});
         freezeT = .45; sfx.ghost();
         frightEaten++;
+        emit(14, q.x + .5, q.y + .5, {speed:3, life:.55, size:.08, kind:'spark', color:['#ffffff','#7fd3ff','#ffb627']});
         if (frightTotal >= 2 && frightEaten >= frightTotal) award('abschlepp');
         else if (frightEaten === 1) funk('tow');
       } else {
@@ -1093,14 +1373,102 @@ function isWall(x,y){
   return MAP[y][x] === '#';
 }
 const isWallD = (x, y) => isWall(x, y) && !(y >= 0 && y < H && x >= 0 && x < W && RIVER.has(y*W + x));
-function buildWalls(fill, edge){
+// small deterministic random numbers, so textures look the same every time
+function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function paintFloor(g, kind){
+  const w = W*S, h = H*S, r = rng(kind.length * 977 + 13);
+  const base = {kies:'#15140f', beton:'#121419', pflaster:'#14121b', asphalt:'#101215', industrie:'#141412'}[kind] || COL.night;
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  if (kind === 'kies'){
+    for (let i = 0; i < W*H*7; i++){ g.fillStyle = ['#1d1b15','#221f18','#1a1813','#24211a'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, .5 + r()*S*.07, 0, Math.PI*2); g.fill(); }
+  } else if (kind === 'beton'){
+    g.strokeStyle = 'rgba(255,255,255,.035)'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x++){ g.beginPath(); g.moveTo(x*S + .5, 0); g.lineTo(x*S + .5, h); g.stroke(); }
+    for (let y = 0; y <= H; y++){ g.beginPath(); g.moveTo(0, y*S + .5); g.lineTo(w, y*S + .5); g.stroke(); }
+    for (let i = 0; i < W*H; i++){ g.fillStyle = `rgba(255,255,255,${.012 + r()*.02})`; g.fillRect(r()*w, r()*h, S*.3, S*.06); }
+  } else if (kind === 'pflaster'){
+    for (let y = 0; y < H*3; y++) for (let x = 0; x < W*3; x++){
+      const cx = (x + .5 + (y % 2) * .5) * S/3, cy = (y + .5) * S/3;
+      g.fillStyle = ['#1a1822','#1c1a25','#18161f'][(r()*3)|0];
+      g.beginPath(); g.ellipse(cx, cy, S*.14, S*.12, r(), 0, Math.PI*2); g.fill();
+    }
+  } else if (kind === 'asphalt'){
+    for (let i = 0; i < W*H*10; i++){ g.fillStyle = `rgba(${150 + r()*60},${150 + r()*60},${160 + r()*60},${.03 + r()*.04})`; g.fillRect(r()*w, r()*h, 1, 1); }
+  } else if (kind === 'industrie'){
+    g.strokeStyle = 'rgba(255,255,255,.03)'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += 2){ g.beginPath(); g.moveTo(x*S + .5, 0); g.lineTo(x*S + .5, h); g.stroke(); }
+    for (let y = 0; y <= H; y += 2){ g.beginPath(); g.moveTo(0, y*S + .5); g.lineTo(w, y*S + .5); g.stroke(); }
+    for (let i = 0; i < 18; i++){ g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.3 + r()*.6), S*(.2 + r()*.3), r()*3, 0, Math.PI*2); g.fill(); }
+  }
+}
+function paintMaterial(g, kind, fill){
+  const w = W*S, h = H*S, r = rng(kind.length * 131 + 7);
+  g.fillStyle = fill; g.fillRect(0, 0, w, h);
+  if (kind === 'bauzaun'){
+    g.strokeStyle = 'rgba(170,190,215,.22)'; g.lineWidth = 1;
+    const st = Math.max(4, S*.28);
+    for (let x = -h; x < w; x += st){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); g.beginPath(); g.moveTo(x + h, 0); g.lineTo(x, h); g.stroke(); }
+  } else if (kind === 'ziegel'){
+    const bh = S/4, bw = S/2;
+    for (let y = 0; y < h; y += bh) for (let x = -bw; x < w; x += bw){
+      const ox = ((y / bh) % 2) * bw/2, v = r();
+      g.fillStyle = `rgb(${80 + v*30},${36 + v*14},${38 + v*12})`;
+      g.fillRect(x + ox + 1, y + 1, bw - 2, bh - 2);
+    }
+  } else if (kind === 'putz'){
+    for (let i = 0; i < W*H*8; i++){ g.fillStyle = `rgba(255,255,255,${r()*.05})`; g.fillRect(r()*w, r()*h, 1.5, 1.5); }
+    for (let i = 0; i < W*H*4; i++){ g.fillStyle = `rgba(0,0,0,${r()*.08})`; g.fillRect(r()*w, r()*h, 2, 2); }
+  } else if (kind === 'hecke'){
+    for (let i = 0; i < W*H*9; i++){ g.fillStyle = ['#2a5530','#24492a','#336b3a','#1d3d22'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, S*(.06 + r()*.1), 0, Math.PI*2); g.fill(); }
+  } else if (kind === 'wellblech'){
+    const st = Math.max(3, S*.16);
+    for (let x = 0; x < w; x += st){ g.fillStyle = (x / st) % 2 < 1 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.14)'; g.fillRect(x, 0, st/2, h); }
+    for (let i = 0; i < 26; i++){ g.fillStyle = 'rgba(150,70,20,.22)'; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.1 + r()*.25), S*(.08 + r()*.2), 0, 0, Math.PI*2); g.fill(); }
+  }
+}
+function wallMask(ins, cornerIns){
+  const m = document.createElement('canvas'); m.width = Math.round(W*S*dpr); m.height = Math.round(H*S*dpr);
+  const g = m.getContext('2d'); g.scale(dpr, dpr); g.fillStyle = '#fff';
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    if (!isWallD(x,y)) continue;
+    let x0 = x*S, y0 = y*S, x1 = x0 + S, y1 = y0 + S;
+    if (!isWallD(x-1,y)) x0 += ins; if (!isWallD(x+1,y)) x1 -= ins;
+    if (!isWallD(x,y-1)) y0 += ins; if (!isWallD(x,y+1)) y1 -= ins;
+    g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    if (!isWallD(x,y)) continue;
+    for (const [sx,sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+      if (isWallD(x+sx,y) && isWallD(x,y+sy) && !isWallD(x+sx,y+sy)){
+        const cx = sx > 0 ? (x+1)*S : x*S, cy = sy > 0 ? (y+1)*S : y*S;
+        g.clearRect(sx > 0 ? cx - cornerIns : cx, sy > 0 ? cy - cornerIns : cy, cornerIns, cornerIns);
+      }
+    }
+  }
+  return m;
+}
+function throughMask(mask, paint){
+  // returns a canvas with paint() limited to the mask shape
+  const c = document.createElement('canvas'); c.width = mask.width; c.height = mask.height;
+  const g = c.getContext('2d'); g.scale(dpr, dpr); paint(g);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(mask, 0, 0);
+  return c;
+}
+function buildWalls(fill, edge, theme){
   const c = document.createElement('canvas');
   c.width = Math.round(W*S*dpr); c.height = Math.round(H*S*dpr);
   const g = c.getContext('2d'); g.scale(dpr, dpr);
+  const i1 = S*.2, i2 = i1 + Math.max(1.5, S*.08);
+  if (theme && theme.floor){
+    paintFloor(g, theme.floor);
+    // vignette towards the edges
+    const vg = g.createRadialGradient(W*S/2, H*S/2, S*4, W*S/2, H*S/2, Math.max(W, H)*S*.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.35)');
+    g.fillStyle = vg; g.fillRect(0, 0, W*S, H*S);
+  }
   // fire station floor
   g.fillStyle = role === 'fw' ? 'rgba(31,88,201,.14)' : 'rgba(224,53,61,.08)';
   for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (MAP[y][x] === 'G') g.fillRect(x*S, y*S, S, S);
-  const i1 = S*.2, i2 = i1 + Math.max(1.5, S*.08);
   // river and bridges
   RIVER.forEach(k => {
     const x = k % W, y = (k / W) | 0;
@@ -1113,28 +1481,33 @@ function buildWalls(fill, edge){
       g.beginPath(); for (let k2 = 1; k2 < 4; k2++){ g.moveTo((x+1)*S + k2*S/4, y*S + S*.08); g.lineTo((x+1)*S + k2*S/4, y*S + S*.92); } g.stroke();
     }
   });
-  const pass = (ins, color) => {
-    g.fillStyle = color;
-    for (let y=0;y<H;y++) for (let x=0;x<W;x++){
-      if (!isWallD(x,y)) continue;
-      let x0 = x*S, y0 = y*S, x1 = x0 + S, y1 = y0 + S;
-      if (!isWallD(x-1,y)) x0 += ins; if (!isWallD(x+1,y)) x1 -= ins;
-      if (!isWallD(x,y-1)) y0 += ins; if (!isWallD(x,y+1)) y1 -= ins;
-      g.fillRect(x0, y0, x1 - x0, y1 - y0);
-    }
-  };
-  pass(i1, edge); pass(i2, fill);
-  // concave corners
-  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
-    if (!isWallD(x,y)) continue;
-    for (const [sx,sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
-      if (isWallD(x+sx,y) && isWallD(x,y+sy) && !isWallD(x+sx,y+sy)){
-        const cx = sx > 0 ? (x+1)*S : x*S, cy = sy > 0 ? (y+1)*S : y*S;
-        g.fillStyle = edge;
-        g.fillRect(sx > 0 ? cx - i2 : cx, sy > 0 ? cy - i2 : cy, i2, i2);
-        g.clearRect(sx > 0 ? cx - i1 : cx, sy > 0 ? cy - i1 : cy, i1, i1);
+  const outer = wallMask(i1, i1), inner = wallMask(i2, i2);
+  if (theme && theme.mat){
+    // soft drop shadow of the walls on the floor
+    const sh = throughMask(outer, gg => { gg.fillStyle = 'rgba(0,0,0,.5)'; gg.fillRect(0, 0, W*S, H*S); });
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(sh, Math.round(S*.12*dpr), Math.round(S*.16*dpr)); g.restore();
+  }
+  const rim = throughMask(outer, gg => { gg.fillStyle = edge; gg.fillRect(0, 0, W*S, H*S); });
+  const body = throughMask(inner, gg => {
+    if (theme && theme.mat) paintMaterial(gg, theme.mat, fill); else { gg.fillStyle = fill; gg.fillRect(0, 0, W*S, H*S); }
+    if (theme && theme.mat){
+      // light from the top: brighter upper part of every wall block
+      for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+        if (!isWallD(x,y) || isWallD(x,y-1)) continue;
+        const lg = gg.createLinearGradient(0, y*S, 0, y*S + S*.6);
+        lg.addColorStop(0, 'rgba(255,255,255,.16)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+        gg.fillStyle = lg; gg.fillRect(x*S, y*S, S, S*.6);
       }
     }
+  });
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(rim, 0, 0); g.drawImage(body, 0, 0); g.restore();
+  if (theme && theme.mat === 'bauzaun'){
+    // yellow-black warning stripes on the outer frame
+    g.save(); g.beginPath();
+    g.rect(0, 0, W*S, S*.18); g.rect(0, (H - .18)*S, W*S, S*.18); g.clip();
+    g.fillStyle = '#c9a227'; g.fillRect(0, 0, W*S, H*S);
+    for (let x = -S; x < W*S; x += S*.5){ g.fillStyle = '#1b1b1b'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + S*.25, 0); g.lineTo(x + S*.25 + H*S, H*S); g.lineTo(x + H*S, H*S); g.closePath(); g.fill(); }
+    g.restore();
   }
   // gate: red/white barrier
   const gx = 8*S, gy = 8*S + S*.42, gh = S*.16;
@@ -1150,7 +1523,7 @@ function resize(){
   rebuildWalls();
 }
 function rebuildWalls(){
-  wallImg = buildWalls(curMap.wall, curMap.edge);
+  wallImg = buildWalls(curMap.wall, curMap.edge, curMap);
   wallFlash = buildWalls('#c9d6ea', '#ffffff');
 }
 
@@ -1309,6 +1682,146 @@ function drawDark(){
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 'o') drawPower(ctx, (x+.5)*S, (y+.5)*S, S, 1);
   ctx.globalAlpha = 1;
 }
+function drawHazTile(x, y){
+  const cx = (x + .5)*S, cy = (y + .5)*S, h = hash(x, y);
+  if (role === 'fw'){
+    const f = Math.sin(tNow*9 + h*20);
+    ctx.fillStyle = 'rgba(255,90,20,.25)'; ctx.fillRect(x*S, y*S, S, S);
+    for (let k = 0; k < 3; k++){
+      const ox = (k - 1)*S*.24, fh = S*(.55 + .18*Math.sin(tNow*11 + h*9 + k*2));
+      ctx.fillStyle = k === 1 ? '#ffb31a' : '#ff5a1f';
+      ctx.beginPath(); ctx.moveTo(cx + ox - S*.16, cy + S*.38); ctx.quadraticCurveTo(cx + ox - S*.18, cy + S*.38 - fh*.6, cx + ox + f*S*.04, cy + S*.38 - fh);
+      ctx.quadraticCurveTo(cx + ox + S*.18, cy + S*.38 - fh*.6, cx + ox + S*.16, cy + S*.38); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.ellipse(cx, cy + S*.26, S*.1, S*.14, 0, 0, Math.PI*2); ctx.fill();
+  } else {
+    // flood water
+    ctx.fillStyle = 'rgba(40,120,220,.75)'; ctx.fillRect(x*S, y*S, S, S);
+    ctx.strokeStyle = 'rgba(180,220,255,.7)'; ctx.lineWidth = Math.max(1, S*.06);
+    for (let k = 0; k < 2; k++){
+      const yy = y*S + S*(.35 + k*.35);
+      ctx.beginPath(); ctx.moveTo(x*S, yy);
+      ctx.quadraticCurveTo(x*S + S*.25, yy - S*.08*Math.sin(tNow*3 + h*9 + k), x*S + S*.5, yy);
+      ctx.quadraticCurveTo(x*S + S*.75, yy + S*.08*Math.sin(tNow*3 + h*9 + k), x*S + S, yy); ctx.stroke();
+    }
+    return;
+    ctx.fillStyle = 'rgba(150,140,125,.18)'; ctx.fillRect(x*S, y*S, S, S);
+    const stones = [[-.22,.2,.2],[.18,.22,.22],[0,.02,.24],[-.14,-.2,.15],[.2,-.14,.14]];
+    stones.forEach(([sx, sy, r], i) => {
+      ctx.fillStyle = i % 2 ? '#6e6a62' : '#8d887d';
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++){ const a = k/6*Math.PI*2 + h*5 + i; const rr2 = S*r*(.8 + .3*hash(k + i, x + y)); const px = cx + sx*S + Math.cos(a)*rr2, py = cy + sy*S + Math.sin(a)*rr2*.8; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+      ctx.closePath(); ctx.fill();
+    });
+    ctx.fillStyle = `rgba(200,190,170,${.12 + .1*Math.sin(tNow*2 + h*10)})`; ctx.beginPath(); ctx.arc(cx, cy - S*.3, S*.4, 0, Math.PI*2); ctx.fill();
+  }
+}
+function drawPerson(g, cx, cy, s, t, wave){
+  const arm = wave ? Math.sin(t*8)*.6 : .2;
+  g.save(); g.translate(cx, cy);
+  g.strokeStyle = '#f2d2b0'; g.lineWidth = Math.max(1.2, s*.08); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(s*.1, -s*.08); g.lineTo(s*.1 + Math.cos(-1.2 - arm)*s*.24, -s*.08 + Math.sin(-1.2 - arm)*s*.24); g.stroke();
+  g.fillStyle = '#ff8a1f'; rr(g, -s*.13, -s*.12, s*.26, s*.3, s*.06); g.fill();
+  g.fillStyle = '#e8edf5'; g.fillRect(-s*.13, -s*.02, s*.26, s*.04);
+  g.strokeStyle = '#3b4252'; g.beginPath(); g.moveTo(-s*.06, s*.18); g.lineTo(-s*.08, s*.36); g.moveTo(s*.06, s*.18); g.lineTo(s*.08, s*.36); g.stroke();
+  g.fillStyle = '#f2d2b0'; g.beginPath(); g.arc(0, -s*.22, s*.1, 0, Math.PI*2); g.fill();
+  g.restore();
+}
+function drawRTW(g, cx, cy, s, dir, t){
+  g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
+  const u = s;
+  g.fillStyle = '#f4f6fa'; rr(g, -u*.44, -u*.3, u*.62, u*.46, u*.06); g.fill();
+  g.fillStyle = '#f4f6fa'; rr(g, u*.14, -u*.2, u*.3, u*.36, u*.07); g.fill();
+  g.fillStyle = 'rgba(160,205,255,.95)'; g.fillRect(u*.26, -u*.15, u*.14, u*.13);
+  // reflective side stripes, checked
+  for (let k = 0; k < 6; k++){ g.fillStyle = k % 2 ? '#e3262f' : '#ffd23f'; g.fillRect(-u*.44 + k*u*.1, -u*.02, u*.1, u*.08); }
+  g.fillStyle = '#e3262f'; g.fillRect(u*.18, -u*.02, u*.26, u*.05);
+  wheel(g, -u*.26, u*.2, u*.12, s); wheel(g, u*.26, u*.2, u*.12, s);
+  const a = Math.sin(t*16) > 0;
+  g.fillStyle = a ? '#3d8bff' : '#16346b'; g.fillRect(-u*.3, -u*.38, u*.12, u*.08);
+  g.fillStyle = a ? '#16346b' : '#3d8bff'; g.fillRect(-u*.18, -u*.38, u*.12, u*.08);
+  g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(-u*.2, -u*.36, u*.2, 0, Math.PI*2); g.fill();
+  g.restore();
+}
+function drawCrate(g, cx, cy, s){
+  g.save(); g.translate(cx, cy);
+  g.fillStyle = '#7a5226'; rr(g, -s*.26, -s*.2, s*.52, s*.4, s*.05); g.fill();
+  g.strokeStyle = '#4c3214'; g.lineWidth = Math.max(1, s*.04); g.strokeRect(-s*.26, -s*.2, s*.52, s*.4);
+  g.beginPath(); g.moveTo(-s*.26, -s*.2); g.lineTo(s*.26, s*.2); g.moveTo(s*.26, -s*.2); g.lineTo(-s*.26, s*.2); g.stroke();
+  g.fillStyle = '#ffd23f'; g.fillRect(-s*.08, -s*.07, s*.16, s*.14);
+  g.restore();
+}
+function drawVers(){
+  const x = VERS.x*S, y = VERS.y*S, p = (Math.sin(tNow*3) + 1)/2;
+  ctx.fillStyle = `rgba(255,182,39,${.15 + .15*p})`; ctx.beginPath(); ctx.arc(x + S/2, y + S/2, S*.75, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b8761f'; rr(ctx, x + S*.1, y + S*.1, S*.8, S*.8, S*.12); ctx.fill();
+  ctx.fillStyle = '#ffffff'; ctx.font = `700 ${Math.round(S*.4)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('VS', x + S/2, y + S*.53);
+}
+function drawUnit(u){
+  const q = pos(u), cx = (q.x + .5)*S, cy = (q.y + .5)*S;
+  const gh = {id: role === 'fw' ? [0,1,2][u.id] : [0,2,3][u.id], mode:'active', fright:false};
+  const tired = u.state === 'tired';
+  if (u.state === 'work' && u.aim != null){
+    const ax = (u.aim % W + .5)*S, ay = (((u.aim / W) | 0) + .5)*S;
+    for (let k = 0; k < 5; k++){
+      const f = (tNow*2.2 + k/5) % 1;
+      ctx.fillStyle = `rgba(150,205,255,${.9 - f*.7})`;
+      ctx.beginPath(); ctx.arc(cx + (ax - cx)*f, cy + (ay - cy)*f - Math.sin(f*Math.PI)*S*.3, S*.07, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.save(); if (tired) ctx.globalAlpha = Math.floor(tNow*3) % 2 ? .45 : .8;
+  const dir = viewDir(u, u.dir >= 0 ? u.dir : 3), ub = rolled(u, q.x, q.y);
+  drawShadow(cx, cy, S*1.15);
+  if (role === 'fw') drawTruck(ctx, cx, cy + ub*S, S*1.15, dir, gh, tired ? 0 : tNow, 9); else drawThw(ctx, cx, cy + ub*S, S*1.15, dir, gh, tired ? 0 : tNow, 9);
+  ctx.restore();
+  // strength bar
+  const w = S*.9, bx = cx - w/2, by = cy - S*.78;
+  ctx.fillStyle = 'rgba(11,16,25,.85)'; ctx.fillRect(bx - 1, by - 1, w + 2, S*.16 + 2);
+  ctx.fillStyle = u.kraft > 50 ? '#57d17a' : u.kraft > 25 ? '#ffb627' : '#ff4d4d';
+  ctx.fillRect(bx, by, w * u.kraft / 100, S*.16);
+  if (tired && Math.floor(tNow*3) % 2 === 0){
+    ctx.font = `700 ${Math.round(S*.6)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ff4d4d'; ctx.fillText('!', cx, by - S*.3);
+  }
+}
+// the clinic: small hospital building with the blue H sign
+function drawKlinik(g, cx, cy, s){
+  g.save(); g.translate(cx, cy);
+  g.fillStyle = '#d9dee7'; rr(g, -s*.42, -s*.22, s*.84, s*.6, s*.05); g.fill();
+  g.fillStyle = '#9aa6b8'; g.fillRect(-s*.46, -s*.28, s*.92, s*.08);
+  g.fillStyle = 'rgba(120,175,235,.9)';
+  for (const wx of [-.32, -.17, .07, .22]) g.fillRect(wx*s, -s*.12, s*.1, s*.1);
+  g.fillStyle = '#5c6678'; g.fillRect(-s*.07, s*.12, s*.14, s*.26);
+  g.fillStyle = '#1f5fd1'; rr(g, -s*.17, -s*.66, s*.34, s*.34, s*.05); g.fill();
+  g.fillStyle = '#ffffff'; g.font = `700 ${Math.round(s*.3)}px "Barlow Condensed","Arial Narrow",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('H', 0, -s*.48);
+  g.restore();
+}
+function drawSammel(){
+  const x = SAMMEL.x*S, y = SAMMEL.y*S, p = (Math.sin(tNow*3) + 1)/2;
+  ctx.fillStyle = `rgba(80,150,255,${.14 + .14*p})`; ctx.beginPath(); ctx.arc(x + S/2, y + S/2, S*.85, 0, Math.PI*2); ctx.fill();
+  drawKlinik(ctx, x + S/2, y + S*.55, S*1.05);
+}
+function drawRescue(){
+  rescue.haz.forEach(k => drawHazTile(k % W, (k / W) | 0));
+  rescue.src.forEach(k => { const x = k % W, y = (k / W) | 0, p = (Math.sin(tNow*6 + k) + 1)/2; ctx.strokeStyle = role === 'fw' ? `rgba(255,210,63,${.5 + .5*p})` : `rgba(160,220,255,${.5 + .5*p})`; ctx.lineWidth = Math.max(1.5, S*.1); ctx.strokeRect(x*S + 1.5, y*S + 1.5, S - 3, S - 3); });
+  if (state === 'play' || state === 'ready' || state === 'paused'){ drawSammel(); drawVers(); }
+  rescue.units.forEach(drawUnit);
+  rescue.persons.forEach(p => {
+    if (p.state !== 'wait') return;
+    const cx = (p.x + .5)*S, cy = (p.y + .55)*S;
+    if (p.dangerT > 0){
+      const bl = Math.floor(tNow*4) % 2 === 0;
+      ctx.strokeStyle = bl ? '#ff4d4d' : '#ffb627'; ctx.lineWidth = Math.max(1.5, S*.08);
+      ctx.beginPath(); ctx.arc(cx, cy - S*.05, S*.5, 0, Math.PI*2); ctx.stroke();
+      ctx.font = `700 ${Math.round(S*.6)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(11,16,25,.9)'; rr(ctx, cx - S*.38, cy - S*1.18, S*.76, S*.62, S*.18); ctx.fill();
+      ctx.fillStyle = '#ff6b6b'; ctx.fillText(String(Math.ceil(p.dangerT)), cx, cy - S*.85);
+    }
+    drawPerson(ctx, cx, cy, S, tNow + p.x, true);
+  });
+}
 function drawB5(g, cx, cy, s, t){
   const p = (Math.sin(t * 8) + 1) / 2;
   g.save(); g.translate(cx, cy);
@@ -1321,13 +1834,168 @@ function drawB5(g, cx, cy, s, t){
   g.restore();
 }
 function orient(g, dir){
+  // dir is either 0-3 or a smooth view state {m: mirrored, a: angle}
+  if (dir && typeof dir === 'object'){ if (dir.m) g.scale(-1, 1); if (dir.a) g.rotate(dir.a); return; }
   if (dir === 1) g.scale(-1, 1);
   else if (dir === 0) g.rotate(-Math.PI/2);
   else if (dir === 2) g.rotate(Math.PI/2);
 }
+let WHEEL_ROT = 0;   // set per vehicle before drawing, so wheels turn with the distance driven
 function wheel(g, x, y, r, s){
   g.fillStyle = '#121418'; g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
   g.fillStyle = '#8a94a3'; g.beginPath(); g.arc(x, y, r*.42, 0, Math.PI*2); g.fill();
+  if (fxActive() && r > 2){
+    g.strokeStyle = '#3a414d'; g.lineWidth = Math.max(1, r*.22);
+    const c = Math.cos(WHEEL_ROT), sn = Math.sin(WHEEL_ROT);
+    g.beginPath(); g.moveTo(x - c*r*.78, y - sn*r*.78); g.lineTo(x + c*r*.78, y + sn*r*.78); g.moveTo(x + sn*r*.78, y - c*r*.78); g.lineTo(x - sn*r*.78, y + c*r*.78); g.stroke();
+    g.fillStyle = '#8a94a3'; g.beginPath(); g.arc(x, y, r*.3, 0, Math.PI*2); g.fill();
+  }
+}
+/* ---------- Visual effects (can be switched off, and are reduced automatically on slow phones) ---------- */
+let fxOn = store.get('radlader-fx', '1') !== '0', fxAuto = true, renderDt = 1/60;
+const fxActive = () => fxOn && fxAuto;
+const DIR_ANG = [-Math.PI/2, 0, Math.PI/2, 0];
+function viewDir(e, d){
+  if (!fxActive()) return d;
+  const v = e.vis || (e.vis = {m: d === 1, a: DIR_ANG[d < 0 ? 3 : d], ta: DIR_ANG[d < 0 ? 3 : d]});
+  if (d === 1) v.m = true; else if (d === 3) v.m = false;
+  if (d >= 0) v.ta = DIR_ANG[d];
+  const diff = v.ta - v.a;
+  v.a += Math.sign(diff) * Math.min(Math.abs(diff), renderDt * 13);
+  return v;
+}
+function heading(e, d){ // screen angle the vehicle points to
+  const v = e.vis;
+  if (fxActive() && v) return v.m ? Math.atan2(Math.sin(v.a), -Math.cos(v.a)) : v.a;
+  return [-Math.PI/2, Math.PI, Math.PI/2, 0][d < 0 ? 3 : d];
+}
+function rolled(e, x, y){
+  // distance driven, used for wheel spin and a slight bounce
+  if (e._lx == null){ e._lx = x; e._ly = y; e.dist = 0; }
+  const dd = Math.abs(x - e._lx) + Math.abs(y - e._ly);
+  if (dd < 1.5) e.dist += dd;
+  e._lx = x; e._ly = y; e._moved = dd > .001;
+  WHEEL_ROT = e.dist * 4;
+  return fxActive() && dd > 0.001 ? -Math.abs(Math.sin(e.dist * Math.PI)) * .035 : 0;
+}
+function drawShadow(cx, cy, w){
+  if (!fxActive()) return;
+  ctx.fillStyle = 'rgba(0,0,0,.38)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + S*.33, w*.42, S*.15, 0, 0, Math.PI*2); ctx.fill();
+}
+/* ---------- Particles: dust, sparks, smoke, spray, confetti ---------- */
+const parts = [];
+let shakeT = 0, confettiT = 0;
+const reduceMotion = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } })();
+function emit(n, x, y, o){
+  if (!fxActive()) return;
+  for (let i = 0; i < n; i++){
+    if (parts.length > 260) parts.shift();
+    const a = Math.random() * Math.PI * 2, sp = (o.speed || 0) * (.5 + Math.random());
+    parts.push({x, y, vx:(o.vx || 0) + Math.cos(a)*sp, vy:(o.vy || 0) + Math.sin(a)*sp, life:0, max:(o.life || .5)*(.7 + Math.random()*.6),
+      size:(o.size || .08)*(.7 + Math.random()*.6), grow:o.grow || 0, grav:o.grav || 0, kind:o.kind || 'dot', layer:o.layer || 1,
+      color:Array.isArray(o.color) ? o.color[(Math.random()*o.color.length)|0] : (o.color || '#fff'), rot:Math.random()*6, vr:(Math.random() - .5)*12, a:o.alpha || 1});
+  }
+}
+function updateParts(dt){
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i]; p.life += dt;
+    if (p.life >= p.max){ parts.splice(i, 1); continue; }
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += p.grav*dt; p.size += p.grow*dt; p.rot += p.vr*dt;
+    if (p.kind === 'puff'){ p.vx *= .96; p.vy *= .96; }
+  }
+}
+function drawParts(layer){
+  for (const p of parts){
+    if (p.layer !== layer) continue;
+    const k = 1 - p.life / p.max, x = p.x*S, y = p.y*S, r = Math.max(.5, p.size*S);
+    ctx.globalAlpha = p.a * (p.kind === 'conf' ? Math.min(1, k*3) : k);
+    ctx.fillStyle = p.color;
+    if (p.kind === 'conf'){ ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); ctx.fillRect(-r, -r*.5, r*2, r); ctx.restore(); }
+    else if (p.kind === 'spark'){ ctx.fillRect(x - r*.5, y - r*.5, r, r); }
+    else { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+}
+function dustFor(e, q, dirN, colorSet){
+  // a puff of dust behind a moving vehicle now and then
+  if (!fxActive()) return;
+  const moving = e._moved;
+  e.dustT = (e.dustT || 0) - renderDt;
+  if (!moving || e.dustT > 0) return;
+  e.dustT = .09 + Math.random()*.06;
+  const ang = heading(e, dirN) + Math.PI;
+  emit(1, q.x + .5 + Math.cos(ang)*.45, q.y + .62 + Math.sin(ang)*.3, {size:.1, grow:.35, life:.55, speed:.25, kind:'puff', layer:0, color:colorSet || ['rgba(170,155,130,.55)','rgba(140,130,115,.5)'], alpha:.7});
+}
+function confetti(){
+  if (!fxActive()) return;
+  for (let i = 0; i < 70; i++) parts.push({x:Math.random()*W, y:-.5 - Math.random()*2, vx:(Math.random() - .5)*2, vy:2 + Math.random()*3, life:0, max:2.6 + Math.random(),
+    size:.09 + Math.random()*.06, grow:0, grav:1.2, kind:'conf', layer:1, color:['#ffb627','#3d8bff','#ff4d4d','#9ff0a6','#ffffff','#c48bff'][(Math.random()*6)|0], rot:Math.random()*6, vr:(Math.random() - .5)*14, a:1});
+}
+let lightCv = null, lightCtx = null;
+function lightHole(g, x, y, r, a){
+  const gr = g.createRadialGradient(x, y, r*.15, x, y, r);
+  gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
+}
+function drawLighting(){
+  if (!lightCv || lightCv.width !== cv.width || lightCv.height !== cv.height){
+    lightCv = document.createElement('canvas'); lightCv.width = cv.width; lightCv.height = cv.height; lightCtx = lightCv.getContext('2d');
+  }
+  const g = lightCtx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, W*S, H*S);
+  g.fillStyle = 'rgba(3,6,18,.5)'; g.fillRect(0, 0, W*S, H*S);
+  g.globalCompositeOperation = 'destination-out';
+  const p = pos(player), px = (p.x + .5)*S, py = (p.y + .5)*S;
+  if (state !== 'over'){
+    lightHole(g, px, py, S*2.3, .95);
+    const ang = heading(player, player.face);
+    const gr = g.createRadialGradient(px, py, S*.4, px, py, S*5);
+    gr.addColorStop(0, 'rgba(0,0,0,.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(px, py); g.arc(px, py, S*5, ang - .5, ang + .5); g.closePath(); g.fill();
+  }
+  ghosts.forEach(gh => { if (gh.mode === 'off' || gh.mode === 'away') return; const q = pos(gh); lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.5, .7); });
+  // what matters stays bright: power-ups, people, supply / clinic, depots and gaps
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 'o') lightHole(g, (x + .5)*S, (y + .5)*S, S*.9, .8);
+  if (rescue){
+    rescue.persons.forEach(q => { if (q.state === 'wait') lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.1, .85); });
+    rescue.units.forEach(u => { const q = pos(u); lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.4, .8); });
+    lightHole(g, (SAMMEL.x + .5)*S, (SAMMEL.y + .5)*S, S*1.5, .9);
+    lightHole(g, (VERS.x + .5)*S, (VERS.y + .5)*S, S*1.3, .9);
+    rescue.src.forEach(k => lightHole(g, (k % W + .5)*S, (((k / W) | 0) + .5)*S, S*1.6, .8));
+  }
+  if (kat){ DEPOTS.forEach(d => lightHole(g, (d.x + .5)*S, (d.y + .5)*S, S*1.3, .9)); kat.gaps.forEach(gp => lightHole(g, (gp.x + .5)*S, (gp.y + .5)*S, S*1.1, .85)); }
+  if (b5) lightHole(g, (b5.x + .5)*S, (b5.y + .5)*S, S*1.2, .9);
+  if (bonus) lightHole(g, (BONUS_T.x + .5)*S, (BONUS_T.y + .5)*S, S*1.1, .9);
+  if (ev && ev.binder) lightHole(g, (ev.binder.x + .5)*S, (ev.binder.y + .5)*S, S*1.1, .9);
+  if (ev && ev.block) lightHole(g, (ev.block.x + .5)*S, (ev.block.y + .5)*S, S*1.3, .8);
+  g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(lightCv, 0, 0, W*S, H*S);
+}
+function glow(x, y, r, rgb, a){
+  const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+}
+function drawGlows(){
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const blue = '70,140,255', amber = '255,170,40';
+  const blink = (k) => .55 + .45 * Math.sin(tNow*14 + k);
+  if (state !== 'over' && !(state === 'dying' && stateT > .8)){
+    const p = pos(player), vid = curVehicle();
+    const amberLight = !rescue && (vid === 'radlader' || vid === 'bagger');
+    glow((p.x + .5)*S, (p.y + .2)*S, S*1.7, amberLight ? amber : blue, .3 * blink(0));
+  }
+  const hideGhosts = (state === 'dying' && stateT > .5) || state === 'clear' || state === 'over' || state === 'won';
+  if (!hideGhosts) ghosts.forEach(gh => {
+    if (gh.mode !== 'active' && gh.mode !== 'leaving' && gh.mode !== 'eaten') return;
+    if (gh.fright) return;
+    const q = pos(gh); glow((q.x + .5)*S, (q.y + .2)*S, S*1.8, blue, .32 * blink(gh.id*1.7));
+  });
+  if (rescue) rescue.units.forEach(u => { if (u.state === 'tired') return; const q = pos(u); glow((q.x + .5)*S, (q.y + .2)*S, S*1.6, blue, .28 * blink(u.id*2.1)); });
+  ctx.restore();
 }
 function drawLoader(g, cx, cy, s, dir, anim, t, o){
   o = o || {};
@@ -1536,7 +2204,7 @@ function drawVehicle(g, cx, cy, s, dir, anim, t, vid){
     default: return drawLoader(g, cx, cy, s, dir, anim, t);
   }
 }
-function drawPlayer(g, cx, cy, s, dir, anim, t){ drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
+function drawPlayer(g, cx, cy, s, dir, anim, t){ if (rescue) drawRTW(g, cx, cy, s*.95, dir, t); else drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
 function drawStar(g, cx, cy, r, color){
   g.fillStyle = color; g.beginPath();
   for (let k = 0; k < 10; k++){ const a = -Math.PI/2 + k*Math.PI/5, rr2 = k % 2 ? r*.45 : r; g.lineTo(cx + Math.cos(a)*rr2, cy + Math.sin(a)*rr2); }
@@ -1559,6 +2227,8 @@ const BADGE_ICON = {
     g.fillStyle = '#1d2a42'; g.beginPath(); g.arc(c - s*.02, c - s*.16, s*.21, 0, Math.PI*2); g.fill();
   },
   sieg: (g, c, s) => drawStar(g, c, c, s*.38, COL.beacon),
+  versorger: (g, c, s) => { g.fillStyle = 'rgba(255,182,39,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawCrate(g, c, c + s*.04, s*.95); },
+  retter: (g, c, s) => { g.fillStyle = 'rgba(60,200,120,.35)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawPerson(g, c, c + s*.08, s*.8, 0, false); },
   leit: (g, c, s) => {
     g.fillStyle = '#3a4252'; rr(g, c - s*.17, c - s*.2, s*.34, s*.5, s*.06); g.fill();
     g.strokeStyle = '#3a4252'; g.lineWidth = s*.06; g.lineCap = 'round'; g.beginPath(); g.moveTo(c + s*.1, c - s*.2); g.lineTo(c + s*.1, c - s*.42); g.stroke();
@@ -1597,6 +2267,7 @@ function drawEntityWrapped(fn, x, y){
 }
 function render(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (shakeT > 0 && fxActive()){ const m = S*.22*shakeT/.45; ctx.translate((Math.random() - .5)*m, (Math.random() - .5)*m); }
   ctx.fillStyle = COL.night; ctx.fillRect(0, 0, W*S, H*S);
   const flash = state === 'clear' && stateT > .4 && Math.floor(stateT * 6) % 2 === 0;
   ctx.drawImage(flash ? wallFlash : wallImg, 0, 0, W*S, H*S);
@@ -1611,6 +2282,7 @@ function render(){
   }
   drawWater();
   if (kat) drawKatField();
+  if (rescue) drawRescue();
   if (ev && ev.binder) drawBinder(ctx, (ev.binder.x + .5)*S, (ev.binder.y + .5)*S + Math.sin(tNow*4)*S*.04, S);
   if (ev && ev.block) drawCrash(ev.block);
   if (bonus && (bonus.t > 2 || Math.floor(bonus.t * 6) % 2 === 0)) drawCan(ctx, (BONUS_T.x+.5)*S, (BONUS_T.y+.5)*S, S, tNow);
@@ -1620,6 +2292,18 @@ function render(){
     ctx.fillStyle = Math.floor(tNow * 4) % 2 ? '#ff6b6b' : COL.beacon;
     ctx.fillText(`${R().away} · ${Math.ceil(awayT)} s`, 8.5*S, 9.5*S);
   }
+  if (fxActive() && !(ev && ev.type === 'dark')) drawLighting();
+  if (fxActive() && rescue && state === 'play'){
+    // smoke over the fire, spray over the water
+    rescue.ambT = (rescue.ambT || 0) - renderDt;
+    if (rescue.ambT <= 0 && rescue.haz.size){
+      rescue.ambT = .12;
+      const ks = [...rescue.haz], k = ks[(Math.random()*ks.length)|0], hx = k % W + .5, hy = ((k / W) | 0) + .5;
+      if (role === 'fw') emit(1, hx, hy - .2, {vy:-.9, speed:.2, size:.14, grow:.5, life:1.3, kind:'puff', layer:1, color:['rgba(60,60,66,.6)','rgba(90,88,92,.5)'], alpha:.65});
+      else emit(2, hx, hy, {vy:-1.2, speed:.8, size:.05, grav:3, life:.5, kind:'dot', layer:1, color:['#bfe2ff','#8cc8ff']});
+    }
+  }
+  drawParts(0);
 
   ctx.save();
   ctx.beginPath(); ctx.rect(0, 0, W*S, H*S); ctx.clip();
@@ -1636,8 +2320,12 @@ function render(){
         ctx.font = `700 ${Math.round(S*.55)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = COL.beacon; ctx.fillText(String(Math.ceil(g.release - playT)), (q.x+.5)*S, (q.y+1.05)*S);
       }
+      const gd = viewDir(g, g.dir < 0 ? (g.mode === 'house' ? (g.id === 2 || g.id === 4 ? 3 : 1) : 0) : g.dir);
+      bob += rolled(g, q.x, q.y);
+      if (g.mode === 'active' && state === 'play') dustFor(g, q, g.dir);
+      drawEntityWrapped((x, y) => drawShadow((x+.5)*S, (y+.5)*S, S*1.24), q.x, q.y);
       if (g.carry) drawSandbag(ctx, (q.x+.5)*S, (q.y-.15+bob)*S, S*.8, 1);
-      drawEntityWrapped((x, y) => drawChaser(ctx, (x+.5)*S, (y+.5+bob)*S, S*1.18, g.dir < 0 ? (g.mode === 'house' ? (g.id === 2 || g.id === 4 ? 3 : 1) : 0) : g.dir, g, tNow, frightT), q.x, q.y);
+      drawEntityWrapped((x, y) => drawChaser(ctx, (x+.5)*S, (y+.5+bob)*S, S*1.24, gd, g, tNow, frightT), q.x, q.y);
     });
   }
 
@@ -1654,12 +2342,26 @@ function render(){
       for (let i=0;i<5;i++){ const a = i*1.3 + stateT*2; ctx.beginPath(); ctx.arc((p.x+.5)*S + Math.cos(a)*S*k*.9, (p.y+.5)*S - S*k*.9 + Math.sin(a)*S*.2, S*(.15 + k*.25), 0, Math.PI*2); ctx.fill(); }
     }
   } else if (state !== 'over') {
-    drawEntityWrapped((x, y) => drawPlayer(ctx, (x+.5)*S, (y+.5)*S, S*1.25, player.face, player.anim, tNow), p.x, p.y);
+    const pd = viewDir(player, player.face), pb = rolled(player, p.x, p.y);
+    if (state === 'play') dustFor(player, p, player.face, rescue ? ['rgba(200,210,225,.45)','rgba(160,170,190,.4)'] : null);
+    drawEntityWrapped((x, y) => drawShadow((x+.5)*S, (y+.5)*S, S*1.3), p.x, p.y);
+    drawEntityWrapped((x, y) => drawPlayer(ctx, (x+.5)*S, (y+.5+pb)*S, S*1.3, pd, player.anim, tNow), p.x, p.y);
     if (player.carry) drawSandbag(ctx, (p.x+.5)*S, (p.y-.2)*S, S*.95, 1 + Math.sin(tNow*10)*.05);
     if (player.binder) drawBinder(ctx, (p.x+.5)*S, (p.y-.25)*S, S*.8);
+    if (player.person != null) drawPerson(ctx, (p.x+.5)*S, (p.y-.15)*S, S*.85, tNow, false);
+    if (player.crate) drawCrate(ctx, (p.x+.5)*S, (p.y-.2)*S, S*.95);
   }
   ctx.restore();
+  if (fxActive() && !(ev && ev.type === 'dark')) drawGlows();
+  drawParts(1);
   if (ev && ev.type === 'dark' && state !== 'over') drawDark();
+  if (rescue && state === 'play'){
+    ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${RESCUE_N}`, S*.4, (H - .5)*S);
+    const pct = Math.round(100 * rescue.haz.size / rescue.openN), lim = Math.round(HAZ_LIMIT * 100);
+    ctx.textAlign = 'right'; ctx.fillStyle = pct > lim * .75 ? '#ff6b6b' : pct > lim * .5 ? COL.beacon : COL.ink;
+    ctx.fillText(`${role === 'fw' ? 'Brand' : 'Wasser'} ${pct}/${lim} %`, (W - .4)*S, (H - .5)*S);
+  }
   if (ev && state === 'play'){
     const rem = Math.max(0, ev.dur - ev.t);
     ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -1677,32 +2379,44 @@ function render(){
   ctx.globalAlpha = 1;
 
   // banners
-  if (state === 'ready') banner(levelIntro ? `Einsatz ${level}/${MAX_LEVEL}` : 'Bereit!', COL.beacon, levelIntro ? curMap.name : '');
-  if (state === 'play' && alarmT > 0) banner(R().alarm, role === 'fw' ? '#7fb3ff' : '#ff6b6b');
-  if (state === 'play' && ev && ev.introT > 0) banner(EVENTS[ev.type].title, COL.beacon, EVENTS[ev.type].sub);
-  if (state === 'play' && kat && kat.introT > 0) banner('Katastrophenfall!', '#ff6b6b', 'Sandsäcke holen, Deich schließen');
-  if (state === 'play' && !kat && katMsg) banner(katMsg.text, katMsg.color, katMsg.sub);
-  if (state === 'clear' && stateT < 1.8) banner(R().clear, '#9ff0a6');
+  if (state === 'ready') banner(levelIntro ? (isRescue() ? 'Bonuslevel' : `Einsatz ${dispLevel()}/${EINSATZ_N}`) : 'Bereit!', isRescue() ? '#9ff0a6' : COL.beacon, levelIntro ? (isRescue() ? `${curMap.name} · Rettungsdienst` : curMap.name) : '', stateT);
+  if (state === 'play' && alarmT > 0) banner(R().alarm, role === 'fw' ? '#7fb3ff' : '#ff6b6b', null, 1.8 - alarmT);
+  if (state === 'play' && ev && ev.introT > 0) banner(EVENTS[ev.type].title, COL.beacon, EVENTS[ev.type].sub, 2.4 - ev.introT);
+  if (state === 'play' && rescue && rescue.introT > 0) banner('Rettungsdienst!', '#9ff0a6', `Personen in die Klinik, Kisten von VS zu den ${role === 'fw' ? 'Löschzügen' : 'THW-Einheiten'}`, 2.8 - rescue.introT);
+  if (state === 'play' && kat && kat.introT > 0) banner('Katastrophenfall!', '#ff6b6b', 'Sandsäcke holen, Deich schließen', 2.6 - kat.introT);
+  if (state === 'play' && !kat && katMsg) banner(katMsg.text, katMsg.color, katMsg.sub, 2.6 - katMsg.t);
+  if (state === 'clear' && stateT < 1.8){
+    if (rescue && rescue.done) banner(rescue.burned ? (role === 'fw' ? 'Alles abgebrannt' : 'Alles überflutet') : rescue.saved >= RESCUE_OK ? 'Bonus geschafft' : 'Bonus vorbei', rescue.burned || rescue.saved < RESCUE_OK ? '#ff6b6b' : '#9ff0a6', `${rescue.saved} von ${RESCUE_N} gerettet${rescue.saved >= RESCUE_OK ? ' · +1 Leben' : ''}`, stateT);
+    else banner(R().clear, '#9ff0a6', null, stateT);
+  }
 }
 let fontCache = null;
 function getFont(){ return fontCache || (fontCache = '"Barlow Condensed","Arial Narrow",system-ui,sans-serif'); }
-function banner(text, color, sub){
+function banner(text, color, sub, age){
   const y = (BONUS_T.y + .5) * S;
+  const k = age == null || !fxActive() ? 1 : Math.min(1, Math.max(0, age / .28));
+  const sc = k >= 1 ? 1 : 1 + 2.70158*Math.pow(k - 1, 3) + 1.70158*Math.pow(k - 1, 2);   // ease-out-back
+  ctx.save(); ctx.translate(W*S/2, y); ctx.scale(sc, sc); ctx.translate(-W*S/2, -y);
   if (sub){
-    ctx.font = `600 ${Math.round(S*.6)}px ${getFont()}`;
-    const ws = ctx.measureText(sub).width + S;
+    let fs = S*.6;
+    ctx.font = `600 ${Math.round(fs)}px ${getFont()}`;
+    const maxW = W*S - S*.6, w0 = ctx.measureText(sub).width + S;
+    if (w0 > maxW){ fs *= maxW / w0; ctx.font = `600 ${Math.max(8, Math.round(fs))}px ${getFont()}`; }
+    const ws = Math.min(ctx.measureText(sub).width + S, W*S);
     ctx.fillStyle = 'rgba(11,16,25,.85)'; ctx.fillRect(W*S/2 - ws/2, y + S*.6, ws, S*.85);
     ctx.fillStyle = COL.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(sub, W*S/2, y + S*1.03);
   }
   ctx.font = `400 ${Math.round(S*1.25)}px "Saira Stencil One","Arial Narrow",Impact,sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(text).width + S;
-  ctx.fillStyle = 'rgba(11,16,25,.85)'; ctx.fillRect(W*S/2 - w/2, y - S*.6, w, S*1.2);
+  ctx.fillStyle = 'rgba(11,16,25,.88)'; rr(ctx, W*S/2 - w/2, y - S*.62, w, S*1.24, S*.25); ctx.fill();
+  ctx.lineWidth = Math.max(2, S*.12); ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineJoin = 'round'; ctx.strokeText(text, W*S/2, y + 1);
   ctx.fillStyle = color; ctx.fillText(text, W*S/2, y + 1);
+  ctx.restore();
 }
 
 /* ---------- Lives HUD ---------- */
-function setLevelText(){ elLevel.textContent = `${level}/${MAX_LEVEL}`; }
+function setLevelText(){ elLevel.textContent = levelLabel(); }
 function renderLives(){
   elLives.innerHTML = '';
   const spare = Math.max(0, lives - (state === 'title' ? 0 : 1));
@@ -1775,7 +2489,7 @@ function showTitle(){
   const owned = ownedBadges().length;
   card.innerHTML = `
     <p class="eyebrow">${R().h1} · ${R().name}</p>
-    <h1>Blaulicht-Jagd</h1>
+    <h1 class="logo"><span class="lb">Blaulicht</span><span class="lj">Jagd</span></h1>
     ${run ? `<p>Dein letzter Einsatz als ${ROLES[run.role === 'fw' ? 'fw' : 'thw'].name} wurde unterbrochen: Einsatz ${run.level}, ${run.score} Punkte, ${run.lives} Leben.</p>` : `<p class="intro">${R().intro}</p>`}
     ${roleHTML()}
     ${vehHTML()}
@@ -1787,6 +2501,8 @@ function showTitle(){
     <div class="sub">
       <button class="cta ghost" id="rulesBtn">Spielregeln</button>
       <button class="cta ghost" id="badgeBtn">Abzeichen ${owned}/${BADGES.length}</button>
+      <button class="cta ghost" id="bonusBtn">Bonuslevel üben</button>
+      <button class="cta ghost" id="fxBtn">Effekte: ${fxOn ? (fxAuto ? 'An' : 'Reduziert') : 'Aus'}</button>
     </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard);
   bindSpeed(); bindRole(showTitle); bindVeh();
@@ -1794,6 +2510,11 @@ function showTitle(){
   if (run) $('resume').addEventListener('click', () => startGame(run));
   $('rulesBtn').addEventListener('click', showRules);
   $('badgeBtn').addEventListener('click', showBadges);
+  $('bonusBtn').addEventListener('click', () => startGame(null, true));
+  $('fxBtn').addEventListener('click', () => {
+    fxOn = !fxOn; fxAuto = true; fpsLow = 0; store.set('radlader-fx', fxOn ? '1' : '0');
+    $('fxBtn').textContent = `Effekte: ${fxOn ? 'An' : 'Aus'}`;
+  });
 }
 function showRules(){
   card.innerHTML = `
@@ -1801,7 +2522,10 @@ function showRules(){
     <h2>So läuft der Einsatz</h2>
     <ul class="legend" id="legend"></ul>
     <ul class="rules">
-      <li>Vier Einsätze auf vier Karten: Baustelle, Wache, Ortschaft und Industriegebiet. Bei jedem Einsatz kommt ein Verfolger dazu, danach gibt es den Gesamtsieg.</li>
+      <li>Vier Einsätze auf vier Karten: Baustelle, Wache, Ortschaft und Industriegebiet. Danach gibt es den Gesamtsieg.</li>
+      <li>Nach Einsatz 2 kommt das Bonuslevel in der Altstadt. Du fährst den Rettungsdienst, niemand jagt dich. Im Feuerwehr-Modus wütet ein Großbrand, im THW-Modus ein Hochwasser, und drei Einheiten kämpfen dagegen.</li>
+      <li>Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten und bring sie zu den Einheiten, sonst geht ihnen die Kraft aus. Du transportierst immer nur eins.</li>
+      <li>Ab 5 Geretteten gibt es ein Extraleben. Bedeckt die Gefahr 40 % der Karte, ist der Bonus vorbei. Ein Leben kostet das Bonuslevel nie.</li>
       <li>Jeder geschaffte Einsatz bringt ein Extraleben.</li>
       <li>Erwischte Verfolger bleiben 6 Sekunden auf der Wache.</li>
       <li>In den anderen zwei Einsätzen kommt je ein Ereignis: Ölspur (rutschig, mit Bindemittel beseitigen), Stromausfall (nur Scheinwerfer und Blaulicht) oder Unfallstelle (ein Gang gesperrt).</li>
@@ -1868,7 +2592,7 @@ function showOver(){
     <div class="final">
       <div class="stat"><span class="lbl">Punkte</span><span class="num" style="color:var(--beacon)">${score}</span></div>
       <div class="stat"><span class="lbl">Rekord</span><span class="num">${best}</span></div>
-      <div class="stat"><span class="lbl">Einsatz</span><span class="num">${level}/${MAX_LEVEL}</span></div>
+      <div class="stat"><span class="lbl">Einsatz</span><span class="num">${levelLabel()}</span></div>
     </div>
     <p>${score >= best && score > 0 ? 'Neuer Rekord. Sauber geräumt!' : R().overP}</p>
     ${earnedHTML()}
@@ -1884,7 +2608,7 @@ function showOver(){
 }
 function showWin(){
   card.innerHTML = `
-    <p class="eyebrow">Alle ${MAX_LEVEL} Einsätze geschafft</p>
+    <p class="eyebrow">Alle ${EINSATZ_N} Einsätze geschafft</p>
     <h2>Gesamtsieg!</h2>
     <div class="final">
       <div class="stat"><span class="lbl">Punkte</span><span class="num" style="color:var(--beacon)">${score}</span></div>
@@ -1929,7 +2653,13 @@ function showPause(){
     requestAnimationFrame(fitCard);
   });
 }
+function quitToMenu(){
+  ev = null; kat = null; $('funk').hidden = true;
+  loadMap(1); resetGrid(); resetPositions(); level = 1; setLevelText(); renderLives();
+  showTitle();
+}
 function quitGame(){
+  if (practice){ practice = false; state = 'title'; prevState = null; overlay.hidden = true; quitToMenu(); return; }
   clearRun();
   state = 'title'; prevState = null; ev = null; kat = null;
   overlay.hidden = true; $('funk').hidden = true; $('toast').hidden = true;
@@ -1940,8 +2670,10 @@ let wakeLock = null;
 function requestWake(){
   try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => wakeLock = l).catch(()=>{}); } catch(e){}
 }
-function startGame(run){
+let practice = false;   // 'Bonuslevel üben': play only the bonus level, then back to the menu
+function startGame(run, practiceBonus){
   ensureAudio(); sfx.start(); requestWake();
+  practice = !!practiceBonus;
   if (run){ const runRole = run.role === 'fw' ? 'fw' : 'thw'; if (runRole !== role) setRole(runRole); }
   score = 0; lives = 3; level = 1;
   gameBadges = []; $('toast').hidden = true; toastT = 0;
@@ -1950,15 +2682,17 @@ function startGame(run){
   if (run && run.grid){
     score = run.score; lives = run.lives; level = Math.min(Math.max(run.level|0, 1), MAX_LEVEL);
     loadMap(level); resetGrid();
-    grid = run.grid.map(r => r.split(''));
+    if (!isRescue()) grid = run.grid.map(r => r.split(''));
     pelletsLeft = 0; for (const r of grid) for (const c of r) if (c === '.' || c === 'o') pelletsLeft++;
     eatenCount = run.eatenCount || 0; bonusSpawned = run.bonusSpawned || 0;
     if (Array.isArray(run.katPlan)) katPlan = run.katPlan.filter(l => l >= level);
     if (run.evPlan && typeof run.evPlan === 'object') evPlan = run.evPlan;
     katPrep(); evPrep(); flooded = !!run.flooded;
-    if (pelletsLeft === 0) resetGrid();
+    if (!isRescue() && pelletsLeft === 0) resetGrid();
+    if (isRescue()){ pelletsLeft = 0; for (const r of grid) for (const c of r) if (c === 'o') pelletsLeft++; }
   }
-  elScore.textContent = score; setLevelText(); elBest.textContent = best;
+  if (practice){ clearRun(); level = BONUS_LEVEL; loadMap(level); resetGrid(); }
+  elScore.textContent = score; shownScore = score; setLevelText(); elBest.textContent = best; parts.length = 0;
   levelIntro = true;
   resetPositions();
   overlay.hidden = true;
@@ -2006,13 +2740,9 @@ function pickSplashRole(r){
 $('hotThw').addEventListener('click', () => pickSplashRole('thw'));
 $('hotFw').addEventListener('click', () => pickSplashRole('fw'));
 $('hotSwap').addEventListener('click', () => pickSplashRole(role === 'thw' ? 'fw' : 'thw'));
-$('hotStart').addEventListener('click', () => {
-  if (splashEl.hidden) return;
-  splashEl.hidden = true; ensureAudio();
-  const run = loadRun();
-  if (run) showTitle(); else { clearRun(); startGame(); }
-});
+$('hotStart').addEventListener('click', closeSplash);
 $('splashMenu').addEventListener('click', closeSplash);
+$('hotBonus').addEventListener('click', () => { if (splashEl.hidden) return; splashEl.hidden = true; ensureAudio(); startGame(null, true); });
 markSplashRole(); fitSplash();
 window.addEventListener('resize', fitSplash);
 window.addEventListener('keydown', e => {
@@ -2050,12 +2780,26 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ---------- Loop ---------- */
 let last = performance.now();
+let fpsT = 0, fpsN = 0, fpsLow = 0, shownScore = 0;
 function frame(now){
-  const dt = Math.min((now - last) / 1000, 1/30); last = now;
+  const raw = (now - last) / 1000;
+  const dt = Math.min(raw, 1/30); last = now; renderDt = dt;
+  if (state === 'play' && fxActive() && raw < .5){
+    fpsT += raw; fpsN++;
+    if (fpsT >= 2){
+      fpsLow = fpsN / fpsT < 40 ? fpsLow + 1 : 0; fpsT = 0; fpsN = 0;
+      if (fpsLow >= 2){ fxAuto = false; showNote('Effekte reduziert, damit es flüssig bleibt'); }
+    }
+  }
   tNow += dt;
   if (funkT > 0 && state !== 'paused'){ funkT -= dt; if (funkT <= 0) $('funk').hidden = true; }
   if (toastT > 0 && state !== 'paused'){ toastT -= dt; if (toastT <= 0) $('toast').hidden = true; }
   if (state !== 'paused' && state !== 'title' && state !== 'over' && state !== 'won') update(dt);
+  if (state !== 'paused'){ updateParts(dt); if (shakeT > 0) shakeT -= dt; }
+  if (shownScore !== score){
+    shownScore = score < shownScore ? score : Math.min(score, shownScore + Math.max(1, Math.ceil((score - shownScore) * Math.min(1, dt*9))));
+    elScore.textContent = shownScore;
+  }
   render();
   requestAnimationFrame(frame);
 }
