@@ -2155,7 +2155,7 @@ function drawPaw(g, cx, cy, r){
 }
 /* Wasserwacht rescue boat, seen from above */
 function drawBoat(g, cx, cy, s, dir, t){
-  g.save(); g.translate(cx, cy); g.rotate([-Math.PI/2, Math.PI, Math.PI/2, 0][player.face < 0 ? 3 : player.face]);
+  g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
   const u = s;
   g.fillStyle = '#e8562a'; g.beginPath(); g.moveTo(u*.46, 0); g.quadraticCurveTo(u*.3, -u*.3, -u*.4, -u*.27); g.lineTo(-u*.44, u*.27); g.quadraticCurveTo(u*.3, u*.3, u*.46, 0); g.closePath(); g.fill();
   g.fillStyle = '#f4f6fa'; g.beginPath(); g.moveTo(u*.36, 0); g.quadraticCurveTo(u*.22, -u*.2, -u*.32, -u*.18); g.lineTo(-u*.34, u*.18); g.quadraticCurveTo(u*.22, u*.2, u*.36, 0); g.closePath(); g.fill();
@@ -2514,12 +2514,11 @@ function drawB5(g, cx, cy, s, t){
   g.restore();
 }
 function orient(g, dir){
-  // side view: mirrored for left, tilted slightly when driving up or down (no 90 degree turn)
-  // dir is either 0-3 or a view state {m: mirrored, a: tilt}
+  // dir is either 0-3 or a smooth view state {m: mirrored, a: angle}
   if (dir && typeof dir === 'object'){ if (dir.m) g.scale(-1, 1); if (dir.a) g.rotate(dir.a); return; }
   if (dir === 1) g.scale(-1, 1);
-  else if (dir === 0) g.rotate(-.16);
-  else if (dir === 2) g.rotate(.16);
+  else if (dir === 0) g.rotate(-Math.PI/2);
+  else if (dir === 2) g.rotate(Math.PI/2);
 }
 let WHEEL_ROT = 0;   // set per vehicle before drawing, so wheels turn with the distance driven
 function wheel(g, x, y, r, s){
@@ -2535,18 +2534,21 @@ function wheel(g, x, y, r, s){
 /* ---------- Visual effects (can be switched off, and are reduced automatically on slow phones) ---------- */
 let fxOn = store.get('radlader-fx', '1') !== '0', fxAuto = true, renderDt = 1/60;
 const fxActive = () => fxOn && fxAuto;
-const DIR_TILT = [-.16, 0, .16, 0];
+const DIR_ANG = [-Math.PI/2, 0, Math.PI/2, 0];
 function viewDir(e, d){
-  // keeps the last left/right facing while driving up or down
-  const v = e.vis || (e.vis = {m: d === 1, a: DIR_TILT[d < 0 ? 3 : d], ta: DIR_TILT[d < 0 ? 3 : d]});
+  if (!fxActive()) return d;
+  const v = e.vis || (e.vis = {m: d === 1, a: DIR_ANG[d < 0 ? 3 : d], ta: DIR_ANG[d < 0 ? 3 : d]});
   if (d === 1) v.m = true; else if (d === 3) v.m = false;
-  if (d >= 0) v.ta = DIR_TILT[d];
-  if (!fxActive()){ v.a = v.ta; return v; }
+  if (d >= 0) v.ta = DIR_ANG[d];
   const diff = v.ta - v.a;
-  v.a += Math.sign(diff) * Math.min(Math.abs(diff), renderDt * 2.5);
+  v.a += Math.sign(diff) * Math.min(Math.abs(diff), renderDt * 13);
   return v;
 }
-function heading(e, d){ return [-Math.PI/2, Math.PI, Math.PI/2, 0][d < 0 ? 3 : d]; }   // screen angle the vehicle drives to
+function heading(e, d){ // screen angle the vehicle points to
+  const v = e.vis;
+  if (fxActive() && v) return v.m ? Math.atan2(Math.sin(v.a), -Math.cos(v.a)) : v.a;
+  return [-Math.PI/2, Math.PI, Math.PI/2, 0][d < 0 ? 3 : d];
+}
 function rolled(e, x, y){
   // distance driven, used for wheel spin and a slight bounce
   if (e._lx == null){ e._lx = x; e._ly = y; e.dist = 0; }
@@ -2684,8 +2686,9 @@ function vGrad(g, y0, y1, c0, c1){ const gr = g.createLinearGradient(0, y0, 0, y
 function dWheel(g, x, y, r){
   g.fillStyle = '#0f1115'; g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
   g.fillStyle = '#2a2f38'; g.beginPath(); g.arc(x, y, r*.86, 0, Math.PI*2); g.fill();
-  g.fillStyle = r > 3 ? vGrad(g, y - r*.6, y + r*.6, '#e3e8ef', '#8f99a8') : '#b7c0cc'; g.beginPath(); g.arc(x, y, r*.56, 0, Math.PI*2); g.fill();
-  if (r > 3){
+  g.fillStyle = '#b7c0cc'; g.beginPath(); g.arc(x, y, r*.56, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#dde3ea'; g.beginPath(); g.arc(x, y - r*.12, r*.38, Math.PI*1.1, Math.PI*1.9); g.fill();
+  if (r > 3 && fxActive()){
     g.fillStyle = '#5b6575';
     for (let k = 0; k < 6; k++){ const a = WHEEL_ROT + k*Math.PI/3; g.beginPath(); g.arc(x + Math.cos(a)*r*.36, y + Math.sin(a)*r*.36, r*.07, 0, Math.PI*2); g.fill(); }
   }
@@ -2732,16 +2735,27 @@ function dMarking(g, u, top, pal, fire){
   g.fillStyle = pal.stripe; g.fillRect(-u*.49, u*.04, u*.97, u*.03);
   if (fire && !pal.fr){ const h = (u*.12 - top)/4; for (let k = 0; k < 4; k++){ g.fillStyle = k % 2 ? '#ffd23f' : '#e0353d'; g.fillRect(-u*.5, top + u*.02 + k*h, u*.025, h); } }
 }
-function dWheels(g, u){
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(-u*.27, u*.17, u*.18, Math.PI, 0); g.fill(); g.beginPath(); g.arc(u*.3, u*.17, u*.18, Math.PI, 0); g.fill();
-  dWheel(g, -u*.27, u*.2, u*.15); dWheel(g, u*.3, u*.2, u*.15);
+function dWells(g, u){ g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(-u*.27, u*.17, u*.18, Math.PI, 0); g.fill(); g.beginPath(); g.arc(u*.3, u*.17, u*.18, Math.PI, 0); g.fill(); }
+function dWheels(g, u){ dWheel(g, -u*.27, u*.2, u*.15); dWheel(g, u*.3, u*.2, u*.15); }
+const BODY_CACHE = new Map();
+/* draws the static part of a vehicle once per size and colour set, then only copies the bitmap */
+function cachedBody(g, key, u, paint){
+  const r = Math.min(window.devicePixelRatio || 1, 3), k = key + '|' + Math.round(u*2) + '|' + r;
+  let c = BODY_CACHE.get(k);
+  if (!c){
+    if (BODY_CACHE.size > 120) BODY_CACHE.clear();
+    c = document.createElement('canvas'); c.width = Math.ceil(u*1.3*r); c.height = Math.ceil(u*1.1*r);
+    const cg = c.getContext('2d'); cg.setTransform(r, 0, 0, r, u*.63*r, u*.66*r); paint(cg);
+    BODY_CACHE.set(k, c);
+  }
+  g.drawImage(c, -u*.63, -u*.66, c.width / r, c.height / r);
 }
 const PAL = {
-  fw:  {base:'#cf2a32', hi:'#f2555b', dark:'#8f1d23', stripe:'#f4f6fa'},
-  thw: {base:'#1a4fb8', hi:'#4b82e6', dark:'#123a8c', stripe:'#f4f6fa'},
-  fwF: {base:'#3e4f73', hi:'#5f739c', dark:'#2c3954', stripe:'#7f93bb', fr:true},
-  thwF:{base:'#5d6675', hi:'#808a9a', dark:'#3f4653', stripe:'#9aa3b2', fr:true},
-  flash:{base:'#dfe6f1', hi:'#ffffff', dark:'#aeb8c8', stripe:'#5d6675', fr:true}
+  fw:  {n:'fw', base:'#cf2a32', hi:'#f2555b', dark:'#8f1d23', stripe:'#f4f6fa'},
+  thw: {n:'thw', base:'#1a4fb8', hi:'#4b82e6', dark:'#123a8c', stripe:'#f4f6fa'},
+  fwF: {n:'fwF', base:'#3e4f73', hi:'#5f739c', dark:'#2c3954', stripe:'#7f93bb', fr:true},
+  thwF:{n:'thwF', base:'#5d6675', hi:'#808a9a', dark:'#3f4653', stripe:'#9aa3b2', fr:true},
+  flash:{n:'flash', base:'#dfe6f1', hi:'#ffffff', dark:'#aeb8c8', stripe:'#5d6675', fr:true}
 };
 function palFor(fire, gh, frightLeft){
   if (!gh || !gh.fright) return fire ? PAL.fw : PAL.thw;
@@ -2749,6 +2763,12 @@ function palFor(fire, gh, frightLeft){
 }
 /* fire brigade: lf, dlk, rw, elw (command car), tlf (tanker) */
 function drawFwC(g, u, v, pal, t){
+  cachedBody(g, 'fw:' + v + ':' + pal.n, u, cg => { drawFwBody(cg, u, v, pal); dWells(cg, u); });
+  const top = v === 'elw' ? -u*.24 : 0;
+  if (v === 'elw') dBar(g, u*.02, top - u*.07, u*.24, u*.07, pal.fr, t); else dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
+  dWheels(g, u);
+}
+function drawFwBody(g, u, v, pal){
   if (v === 'dlk'){
     g.fillStyle = '#9aa3b2'; g.beginPath(); g.arc(-u*.3, -u*.2, u*.08, Math.PI, 0); g.fill();
     g.fillStyle = vGrad(g, -u*.42, -u*.32, '#f0f3f7', '#9aa3b2'); g.fillRect(-u*.48, -u*.41, u*1.04, u*.09);
@@ -2765,8 +2785,7 @@ function drawFwC(g, u, v, pal, t){
     g.strokeStyle = '#c9ced6'; g.lineWidth = Math.max(1, u*.02); g.beginPath(); g.moveTo(-u*.32, top); g.lineTo(-u*.36, top - u*.2); g.stroke();
     g.fillStyle = pal.stripe; g.fillRect(-u*.46, u*.03, u*.92, u*.03);
     g.fillStyle = '#1b1f27'; g.fillRect(-u*.46, u*.1, u*.92, u*.04);
-    dBar(g, u*.02, top - u*.07, u*.24, u*.07, pal.fr, t);
-    dWheels(g, u); return;
+    return;
   }
   const top = v === 'dlk' ? -u*.2 : v === 'rw' ? -u*.32 : -u*.28;
   if (v === 'tlf'){
@@ -2790,11 +2809,14 @@ function drawFwC(g, u, v, pal, t){
   }
   dMarking(g, u, top, pal, true);
   dCab(g, u, pal, false);
-  dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
-  dWheels(g, u);
 }
 /* THW: gkw (box truck), kipper, mzkw (crane), mtw (crew bus) */
 function drawThwC(g, u, v, pal, t){
+  cachedBody(g, 'thw:' + v + ':' + pal.n, u, cg => { drawThwBody(cg, u, v, pal); dWells(cg, u); });
+  if (v === 'mtw') dBar(g, u*.02, -u*.31, u*.24, u*.07, pal.fr, t); else dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
+  dWheels(g, u);
+}
+function drawThwBody(g, u, v, pal){
   if (v === 'mtw'){
     const top = -u*.24;
     g.fillStyle = vGrad(g, top, u*.14, pal.hi, pal.base); rr(g, -u*.46, top, u*.92, u*.38, u*.08); g.fill();
@@ -2803,8 +2825,7 @@ function drawThwC(g, u, v, pal, t){
     g.beginPath(); g.moveTo(u*.24, top + u*.05); g.lineTo(u*.36, top + u*.05); g.lineTo(u*.43, top + u*.17); g.lineTo(u*.24, top + u*.17); g.closePath(); g.fill();
     g.fillStyle = pal.stripe; g.fillRect(-u*.46, u*.03, u*.92, u*.03);
     g.fillStyle = '#1b1f27'; g.fillRect(-u*.46, u*.1, u*.92, u*.04);
-    dBar(g, u*.02, top - u*.07, u*.24, u*.07, pal.fr, t);
-    dWheels(g, u); return;
+    return;
   }
   const top = v === 'mzkw' ? -u*.2 : -u*.28;
   if (v === 'kipper'){
@@ -2823,8 +2844,6 @@ function drawThwC(g, u, v, pal, t){
   }
   dMarking(g, u, top, pal, false);
   dCab(g, u, pal, true);
-  dBar(g, u*.16, -u*.38, u*.24, u*.07, pal.fr, t);
-  dWheels(g, u);
 }
 function drawLoader(g, cx, cy, s, dir, anim, t, o){
   o = o || {};
@@ -2834,9 +2853,17 @@ function drawLoader(g, cx, cy, s, dir, anim, t, o){
   g.strokeStyle = pal.dark; g.lineWidth = u*.08; g.lineCap = 'round'; g.beginPath(); g.moveTo(u*.02, -u*.06); g.lineTo(bx, by); g.stroke();
   g.fillStyle = '#c9ced6'; g.fillRect(u*.1, -u*.08, u*.14, u*.03);
   g.save(); g.translate(bx, by); g.rotate(-.45*lift + .05);
-  g.fillStyle = vGrad(g, -u*.16, u*.14, '#d3d9e2', '#7d8794'); g.beginPath(); g.moveTo(-u*.04, -u*.16); g.lineTo(u*.02, u*.13); g.lineTo(u*.22, u*.14); g.lineTo(u*.18, u*.02); g.closePath(); g.fill();
+  g.fillStyle = '#aab3c0'; g.beginPath(); g.moveTo(-u*.04, -u*.16); g.lineTo(u*.02, u*.13); g.lineTo(u*.22, u*.14); g.lineTo(u*.18, u*.02); g.closePath(); g.fill();
   g.fillStyle = '#5d6672'; for (let k = 0; k < 4; k++) g.fillRect(u*.2, u*.04 + k*u*.025, u*.03, u*.012);
   g.restore();
+  cachedBody(g, 'loader:' + pal.n, u, cg => loaderBody(cg, u, pal));
+  const on = !pal.fr && !o.dark && Math.sin(t*9) > -.2;
+  g.fillStyle = on ? '#ffc04d' : '#7a5a14'; g.beginPath(); g.ellipse(-u*.03, -u*.45, u*.055, u*.05, 0, Math.PI, 0); g.fill();
+  if (on){ g.fillStyle = 'rgba(255,182,39,.2)'; g.beginPath(); g.arc(-u*.03, -u*.48, u*.12, 0, Math.PI*2); g.fill(); }
+  dWheel(g, -u*.3, u*.2, u*.19); dWheel(g, u*.1, u*.2, u*.19);
+  g.restore();
+}
+function loaderBody(g, u, pal){
   g.fillStyle = vGrad(g, -u*.14, u*.14, pal.hi, pal.base); rr(g, -u*.49, -u*.14, u*.36, u*.28, u*.05); g.fill();
   g.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 0; k < 4; k++) g.fillRect(-u*.45 + k*u*.06, -u*.08, u*.03, u*.14);
   g.fillStyle = '#2b2f36'; g.fillRect(-u*.42, -u*.3, u*.035, u*.16);
@@ -2846,11 +2873,6 @@ function drawLoader(g, cx, cy, s, dir, anim, t, o){
   g.strokeStyle = pal.base; g.lineWidth = Math.max(1, u*.02); g.beginPath(); g.moveTo(-u*.03, -u*.39); g.lineTo(-u*.03, -u*.17); g.stroke();
   g.fillStyle = pal.stripe; g.fillRect(-u*.49, u*.05, u*.71, u*.03);
   if (!pal.fr){ g.fillStyle = '#f4f6fa'; g.beginPath(); g.arc(-u*.32, -u*.02, u*.045, 0, Math.PI*2); g.fill(); g.fillStyle = pal.base; g.beginPath(); g.arc(-u*.32, -u*.02, u*.022, 0, Math.PI*2); g.fill(); }
-  const on = !pal.fr && !o.dark && Math.sin(t*9) > -.2;
-  g.fillStyle = on ? '#ffc04d' : '#7a5a14'; g.beginPath(); g.ellipse(-u*.03, -u*.45, u*.055, u*.05, 0, Math.PI, 0); g.fill();
-  if (on){ g.fillStyle = 'rgba(255,182,39,.2)'; g.beginPath(); g.arc(-u*.03, -u*.48, u*.12, 0, Math.PI*2); g.fill(); }
-  dWheel(g, -u*.3, u*.2, u*.19); dWheel(g, u*.1, u*.2, u*.19);
-  g.restore();
 }
 function eatenTruck(g, u, t){
   g.globalAlpha = .55;
@@ -2916,12 +2938,14 @@ function drawBagger(g, cx, cy, s, dir, anim, t){
   g.lineCap = 'round'; g.lineJoin = 'round';
   g.strokeStyle = pal.dark; g.lineWidth = u*.075; g.beginPath(); g.moveTo(u*.1, -u*.1); g.lineTo(ex, ey); g.lineTo(bx, by - u*.06); g.stroke();
   g.strokeStyle = '#c9ced6'; g.lineWidth = Math.max(1, u*.018); g.beginPath(); g.moveTo(u*.14, -u*.06); g.lineTo(ex - u*.02, ey + u*.06); g.stroke();
-  g.fillStyle = vGrad(g, by - u*.1, by + u*.13, '#d3d9e2', '#7d8794'); g.beginPath(); g.moveTo(bx - u*.07, by - u*.1); g.lineTo(bx + u*.09, by - u*.05); g.lineTo(bx + u*.04, by + u*.13); g.lineTo(bx - u*.09, by + u*.06); g.closePath(); g.fill();
-  g.fillStyle = pal.dark; rr(g, -u*.48, -u*.16, u*.18, u*.24, u*.04); g.fill();
-  g.fillStyle = vGrad(g, -u*.18, u*.09, pal.hi, pal.base); rr(g, -u*.36, -u*.18, u*.5, u*.27, u*.04); g.fill();
-  g.fillStyle = vGrad(g, -u*.46, -u*.14, pal.hi, pal.base); rr(g, -u*.06, -u*.46, u*.26, u*.32, u*.04); g.fill();
-  g.fillStyle = dGlass(g, -u*.42, -u*.2, false); g.fillRect(u*.0, -u*.41, u*.17, u*.21);
-  g.fillStyle = pal.stripe; g.fillRect(-u*.36, u*.0, u*.5, u*.03);
+  g.fillStyle = '#aab3c0'; g.beginPath(); g.moveTo(bx - u*.07, by - u*.1); g.lineTo(bx + u*.09, by - u*.05); g.lineTo(bx + u*.04, by + u*.13); g.lineTo(bx - u*.09, by + u*.06); g.closePath(); g.fill();
+  cachedBody(g, 'bagger', u, cg => {
+    cg.fillStyle = pal.dark; rr(cg, -u*.48, -u*.16, u*.18, u*.24, u*.04); cg.fill();
+    cg.fillStyle = vGrad(cg, -u*.18, u*.09, pal.hi, pal.base); rr(cg, -u*.36, -u*.18, u*.5, u*.27, u*.04); cg.fill();
+    cg.fillStyle = vGrad(cg, -u*.46, -u*.14, pal.hi, pal.base); rr(cg, -u*.06, -u*.46, u*.26, u*.32, u*.04); cg.fill();
+    cg.fillStyle = dGlass(cg, -u*.42, -u*.2, false); cg.fillRect(u*.0, -u*.41, u*.17, u*.21);
+    cg.fillStyle = pal.stripe; cg.fillRect(-u*.36, u*.0, u*.5, u*.03);
+  });
   const on = Math.sin(t*9) > -.2;
   g.fillStyle = on ? '#ffc04d' : '#7a5a14'; g.beginPath(); g.ellipse(u*.06, -u*.47, u*.055, u*.05, 0, Math.PI, 0); g.fill();
   if (on){ g.fillStyle = 'rgba(255,182,39,.2)'; g.beginPath(); g.arc(u*.06, -u*.5, u*.12, 0, Math.PI*2); g.fill(); }
