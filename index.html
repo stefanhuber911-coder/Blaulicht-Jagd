@@ -768,7 +768,7 @@ function bfsFrom(x0, y0, extraBlock, block2){
   return seen;
 }
 function setupRescue(){
-  rescue = {kind:'rd', n:RESCUE_N, ok:RESCUE_OK, persons:[], haz:new Set(), spreadT:3, interval:1.5, saved:0, lost:0, failed:false, introT:2.8, done:false, burned:false, src:new Set(), everTired:false, supplies:0, units:[], openN:0};
+  rescue = {kind:'rd', n:RESCUE_N, ok:RESCUE_OK, persons:[], haz:new Set(), spreadT:2, interval:1.05, saved:0, lost:0, failed:false, introT:2.8, done:false, burned:false, src:new Set(), everTired:false, supplies:0, units:[], openN:0};
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (passM(x, y) && !inHouseZone(x, y)) rescue.openN++;
   rescue.units = [{x:4,y:7},{x:8,y:7},{x:12,y:7}].map((p, i) => ({id:i, tx:p.x, ty:p.y, dir:-1, prog:0, kraft:100, state:'drive', workT:WORK_T, aim:null, target:null}));
   // distance from the start for spreading people out
@@ -842,7 +842,7 @@ function rescueTick(dt){
   rescue.spreadT -= dt;
   if (rescue.spreadT <= 0){
     for (let i = 0; i < SPREAD_N; i++) spreadHazard();
-    rescue.interval = Math.max(.7, 1.5 - rescue.haz.size * .015) / TEMPI[tempo].m;
+    rescue.interval = Math.max(.5, 1.05 - rescue.haz.size * .012) / TEMPI[tempo].m;
     rescue.spreadT = rescue.interval;
     if (rescue.haz.size >= rescue.openN * HAZ_LIMIT){
       rescue.done = true; rescue.burned = true; funk('lose'); sfx.katFail();
