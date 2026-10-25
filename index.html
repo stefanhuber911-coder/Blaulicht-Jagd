@@ -74,6 +74,30 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
 .seg button{appearance:none;border:0;border-radius:9px;background:transparent;color:var(--muted);font-family:var(--f-ui);font-weight:700;font-size:16px;padding:7px 2px;cursor:pointer;touch-action:manipulation}
 .seg button[aria-checked="true"]{background:var(--thw);color:#fff}
 .seg.two{grid-template-columns:repeat(2,1fr)}
+.seg button small{display:block;font-size:12px;font-weight:600;opacity:.8;margin-top:1px}
+.seg button[data-o][aria-checked="true"]{background:var(--beacon);color:#1a1205}
+.fld{display:flex;flex-direction:column;gap:5px}
+.sub .cta:last-child:nth-child(odd){grid-column:1/-1}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips button{appearance:none;border:1px solid var(--wall-edge);background:var(--night);color:var(--muted);font:700 14px var(--f-ui);border-radius:999px;padding:5px 10px;cursor:pointer;touch-action:manipulation}
+.chips button[aria-pressed="true"]{background:var(--beacon);border-color:var(--beacon);color:#1a1205}
+.lb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.lb li{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;background:var(--night);border:1px solid rgba(70,101,154,.45);border-left:4px solid var(--thw);border-radius:9px;padding:6px 10px}
+.lb li.fw{border-left-color:var(--fire)}
+.lb li.ort{border-left-color:var(--beacon)}
+.lb li.me{box-shadow:inset 0 0 0 2px var(--beacon)}
+.lb .rk{font:400 20px var(--f-display);color:var(--muted);text-align:center}
+.lb li:nth-child(-n+3) .rk{color:var(--beacon)}
+.lb .nm{min-width:0}
+.lb .nm b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb .nm span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb .pt{font:400 22px var(--f-display);color:var(--ink)}
+.lbmsg{text-align:center;color:var(--muted);font-size:15px;margin:6px 0}
+.lbstat{text-align:center;font-size:14px;color:var(--muted);margin:0}
+.fld input{-webkit-user-select:text;user-select:text;appearance:none;width:100%;font:600 16px var(--f-ui);color:var(--ink);background:var(--night);border:1px solid var(--wall-edge);border-radius:10px;padding:10px 12px;outline:none}
+.fld input:focus{border-color:var(--beacon)}
+.fld input::placeholder{color:var(--muted);opacity:.7}
+#mult{font-style:normal;color:var(--beacon);margin-left:4px;letter-spacing:.04em}
 .seg button[data-r="fw"][aria-checked="true"]{background:var(--fire)}
 .seg button:focus-visible{outline:2px solid var(--beacon);outline-offset:1px}
 .cta.ghost{background:transparent;color:var(--ink);border:1px solid var(--wall-edge);font-size:18px;padding:11px 16px}
@@ -159,7 +183,7 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
 <body>
 <div class="app" id="app">
   <header class="hud">
-    <div class="stat"><span class="lbl">Punkte</span><span class="num" id="score">0</span></div>
+    <div class="stat"><span class="lbl">Punkte<i id="mult"></i></span><span class="num" id="score">0</span></div>
     <div class="stat"><span class="lbl">Rekord</span><span class="num" id="best">0</span></div>
     <div class="stat"><span class="lbl">Einsatz</span><span class="num" id="level">1</span></div>
     <div class="lives" id="lives" aria-label="Leben"></div>
@@ -352,7 +376,7 @@ const store = {
 /* ---------- Audio ---------- */
 let ac = null, muted = store.get('radlader-mute','0') === '1';
 // g: truck speed relative to the loader, fr: flight-time factor, hit: collision distance, rel: release-delay factor
-const TEMPI = [{m:.75, n:'Gemütlich', g:.82, fr:1.6, hit:.48, rel:1.6},{m:1, n:'Normal', g:1, fr:1, hit:.62, rel:1},{m:1.2, n:'Zügig', g:1, fr:1, hit:.62, rel:1},{m:1.45, n:'Rasant', g:1, fr:1, hit:.62, rel:1}];
+const TEMPI = [{m:.75, k:.5, n:'Gemütlich', g:.82, fr:1.6, hit:.48, rel:1.6},{m:1, k:1, n:'Normal', g:1, fr:1, hit:.62, rel:1},{m:1.2, k:1.5, n:'Zügig', g:1, fr:1, hit:.62, rel:1},{m:1.45, k:2, n:'Rasant', g:1, fr:1, hit:.62, rel:1}];
 let tempo = Math.min(3, Math.max(0, parseInt(store.get('radlader-tempo','1'),10) || 0));
 if (isNaN(parseInt(store.get('radlader-tempo','1'),10))) tempo = 1;
 
@@ -364,13 +388,13 @@ const ROLES = {
     legend:['Schotter','Sandsack: Feuerwehr flüchtet','Feuerwehr abschleppen','Dieselkanister','B5-Alarm: Feuerwehr 8 s beim Großbrand'],
     alarm:'B5-Alarm!', away:'Großbrand', clear:'Baustelle geräumt', overH:'Abgeschleppt!',
     overP:'Die Feuerwehr war schneller. Noch eine Schicht?',
-    winP:'Die Baustelle ist geräumt, die Feuerwehr hat Feierabend. Der Radlader darf in die Halle.', bestKey:'radlader-best'},
+    winP:'Die Baustelle ist geräumt, die Feuerwehr hat Feierabend. Der Radlader darf in die Halle.', bestKey:'radlader-best2'},
   fw: {name:'Feuerwehr', eyebrow:'Nachteinsatz im Brandgebiet', h1:'Löschzug-Einsatz',
     intro:'Vier Einsätze gegen das THW und dazwischen ein Bonuslevel als Rettungsdienst. Von Einsatz zu Einsatz wird es härter.',
     legend:['Glutnest','Hydrant: THW flüchtet','THW überholen','Dieselkanister','Hochwasser-Alarm: THW 8 s am Deich'],
     alarm:'Hochwasser!', away:'Deichwache', clear:'Brand gelöscht', overH:'Ausgebremst!',
     overP:'Das THW war schneller. Noch eine Schicht?',
-    winP:'Alle Glutnester sind gelöscht, das THW hat Feierabend. Der Löschzug darf zurück in die Wache.', bestKey:'radlader-best-fw'}
+    winP:'Alle Glutnester sind gelöscht, das THW hat Feierabend. Der Löschzug darf zurück in die Wache.', bestKey:'radlader-best2-fw'}
 };
 const R = () => ROLES[role];
 
@@ -751,8 +775,8 @@ function rescueTick(dt){
     rescue.units.forEach(u => { const q = pos(u); if (u.kraft < 75 && Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) < 1.1 && (!best || u.kraft < best.kraft)) best = u; });
     if (best){
       best.kraft = 100; if (best.state === 'tired'){ best.state = 'drive'; best.dir = -1; }
-      player.crate = false; rescue.supplies++; addScore(100);
-      floats.push({x:best.tx, y:best.ty - .8, text:'100', t:0}); sfx.load(); funk('supplied');
+      player.crate = false; rescue.supplies++;
+      floats.push({x:best.tx, y:best.ty - .8, text:String(addScore(100)), t:0}); sfx.load(); funk('supplied');
     }
   }
   rescue.persons.forEach(p => {
@@ -929,7 +953,7 @@ function playerArrive(p){
       }
     } else if (p.person != null && p.tx === SAMMEL.x && p.ty === SAMMEL.y){
       rescue.persons[p.person].state = 'saved'; p.person = null; rescue.saved++;
-      addScore(500); floats.push({x:p.tx, y:p.ty - .8, text:'500', t:0}); sfx.katWin(); funk('saved');
+      floats.push({x:p.tx, y:p.ty - .8, text:String(addScore(500)), t:0}); sfx.katWin(); funk('saved');
       checkRescueEnd();
     }
   }
@@ -948,7 +972,7 @@ function playerArrive(p){
   }
   if (kat && state === 'play'){
     if (!p.carry && isDepot(p.tx, p.ty)){ p.carry = true; sfx.load(); }
-    else if (p.carry){ const gp = gapAt(p.tx, p.ty); if (gp && gp.n < KAT_PER_GAP){ gp.n++; p.carry = false; kat.own++; addScore(100); floats.push({x:p.tx, y:p.ty - .6, text:'100', t:0}); sfx.drop(); katCheck(); } }
+    else if (p.carry){ const gp = gapAt(p.tx, p.ty); if (gp && gp.n < KAT_PER_GAP){ gp.n++; p.carry = false; kat.own++; floats.push({x:p.tx, y:p.ty - .6, text:String(addScore(100)), t:0}); sfx.drop(); katCheck(); } }
   }
   if (ev && ev.type === 'oil' && state === 'play'){
     if (ev.binder && ev.binder.x === p.tx && ev.binder.y === p.ty){ ev.binder = null; p.binder = true; sfx.load(); }
@@ -976,7 +1000,7 @@ function spawnB5(){
   b5 = {x: c.x, y: c.y, t: 8};
 }
 function triggerB5(){
-  addScore(500); floats.push({x:b5.x, y:b5.y, text:'500', t:0});
+  floats.push({x:b5.x, y:b5.y, text:String(addScore(500)), t:0});
   b5 = null; awayT = 8; alarmT = 1.8; frightT = 0; chain = 0; b5ThisLevel = true; funk('b5');
   ghosts.forEach(g => { if (g.mode !== 'off'){ g.mode = 'away'; g.fright = false; } });
   sfx.alarm();
@@ -1132,7 +1156,7 @@ function startEvent(type){
 }
 function cleanOil(){
   player.binder = false;
-  addScore(300); floats.push({x:player.tx, y:player.ty - .6, text:'300', t:0});
+  floats.push({x:player.tx, y:player.ty - .6, text:String(addScore(300)), t:0});
   sfx.katWin(); funk('oilClean');
   ev = null;
 }
@@ -1196,12 +1220,18 @@ function startFright(){
   frightTotal = ghosts.filter(g => g.mode === 'active').length; frightEaten = 0;
   ghosts.forEach(g => { if (g.mode === 'active'){ if (!g.fright) reverse(g); g.fright = true; } });
 }
+let rawScore = 0;   // points without the tempo factor, only for the extra life at 10 000
+const fmtK = k => '×' + String(k).replace('.', ',');
+function showMult(){ const el = $('mult'); if (el) el.textContent = ' ' + fmtK(TEMPI[tempo].k); }
+showMult();
 function addScore(n){
-  const before = score; score += n;
-  if (before < 10000 && score >= 10000){ lives++; renderLives(); sfx.bonus(); }
+  const pts = Math.round(n * TEMPI[tempo].k);
+  const beforeRaw = rawScore; rawScore += n; score += pts;
+  if (beforeRaw < 10000 && rawScore >= 10000){ lives++; renderLives(); sfx.bonus(); }
   if (score > best){ best = score; store.set(R().bestKey, String(best)); }
   elBest.textContent = best;
-  if (n >= 200){ elScore.classList.remove('bump'); void elScore.offsetWidth; elScore.classList.add('bump'); }
+  if (pts >= 200){ elScore.classList.remove('bump'); void elScore.offsetWidth; elScore.classList.add('bump'); }
+  return pts;
 }
 
 /* ---------- State machine ---------- */
@@ -1221,7 +1251,7 @@ function setState(s){
 const RUN_KEY = 'radlader-run';
 function saveRun(){
   if (practice || !['play','ready','dying','clear','paused'].includes(state) || !grid) return;
-  store.set(RUN_KEY, JSON.stringify({t: Date.now(), role, score, lives: state === 'dying' ? lives - 1 : lives, level, eatenCount, bonusSpawned, katPlan, evPlan, flooded, grid: grid.map(r => r.join(''))}));
+  store.set(RUN_KEY, JSON.stringify({t: Date.now(), role, score, raw: rawScore, lives: state === 'dying' ? lives - 1 : lives, level, eatenCount, bonusSpawned, katPlan, evPlan, flooded, grid: grid.map(r => r.join(''))}));
 }
 function loadRun(){
   try {
@@ -1241,7 +1271,7 @@ function update(dt){
   if (state === 'dying'){
     if (stateT > 1.6){
       lives--; renderLives();
-      if (lives <= 0){ clearRun(); setState('over'); showOver(); }
+      if (lives <= 0){ clearRun(); setState('over'); lbShowStatusAfter(showOver, lbSubmit()); }
       else { resetPositions(); setState('ready'); }
     }
     return;
@@ -1249,7 +1279,7 @@ function update(dt){
   if (state === 'clear'){
     if (stateT > 1.8){
       if (practice){ practice = false; state = 'title'; quitToMenu(); return; }
-      if (level >= MAX_LEVEL){ clearRun(); award('sieg'); if (tempo === 3) award('leit'); setState('won'); sfx.win(); showWin(); }
+      if (level >= MAX_LEVEL){ clearRun(); award('sieg'); if (tempo === 3) award('leit'); setState('won'); sfx.win(); lbShowStatusAfter(showWin, lbSubmit()); }
       else { level++; setLevelText(); levelIntro = true; loadMap(level); resetGrid(); resetPositions(); setState('ready'); }
     }
     return;
@@ -1332,7 +1362,7 @@ function update(dt){
   if (bonus){
     bonus.t -= dt;
     if (bonus.t <= 0) bonus = null;
-    else if (!kat) { const p = pos(player); if (Math.hypot(p.x - BONUS_T.x, p.y - BONUS_T.y) < .6){ addScore(bonus.val); floats.push({x:BONUS_T.x, y:BONUS_T.y, text:String(bonus.val), t:0}); bonus = null; sfx.bonus(); funk('can'); } }
+    else if (!kat) { const p = pos(player); if (Math.hypot(p.x - BONUS_T.x, p.y - BONUS_T.y) < .6){ floats.push({x:BONUS_T.x, y:BONUS_T.y, text:String(addScore(bonus.val)), t:0}); bonus = null; sfx.bonus(); funk('can'); } }
   }
 
   if (b5){
@@ -1352,7 +1382,7 @@ function update(dt){
       if (g.fright){
         g.fright = false; g.mode = 'eaten';
         const pts = 200 * (2 ** chain); chain = Math.min(chain + 1, 3);
-        addScore(pts); floats.push({x:q.x, y:q.y, text:String(pts), t:0});
+        floats.push({x:q.x, y:q.y, text:String(addScore(pts)), t:0});
         freezeT = .45; sfx.ghost();
         frightEaten++;
         emit(14, q.x + .5, q.y + .5, {speed:3, life:.55, size:.08, kind:'spark', color:['#ffffff','#7fd3ff','#ffb627']});
@@ -2439,11 +2469,11 @@ function mini(fn, w=34, h=28){
   c.width = w*r; c.height = h*r; const g = c.getContext('2d'); g.scale(r, r); fn(g, w, h); return c;
 }
 function speedHTML(){
-  return `<div class="speed"><span class="lbl">Tempo</span><div class="seg" role="radiogroup" aria-label="Tempo">${TEMPI.map((t,i) => `<button type="button" role="radio" data-t="${i}" aria-checked="${i === tempo}">${t.n}</button>`).join('')}</div></div>`;
+  return `<div class="speed"><span class="lbl">Tempo</span><div class="seg" role="radiogroup" aria-label="Tempo">${TEMPI.map((t,i) => `<button type="button" role="radio" data-t="${i}" aria-checked="${i === tempo}">${t.n}<small>${fmtK(t.k)}</small></button>`).join('')}</div></div>`;
 }
 function bindSpeed(){
   card.querySelectorAll('.seg button[data-t]').forEach(b => b.addEventListener('click', () => {
-    tempo = +b.dataset.t; store.set('radlader-tempo', String(tempo));
+    tempo = +b.dataset.t; store.set('radlader-tempo', String(tempo)); showMult();
     card.querySelectorAll('.seg button[data-t]').forEach(x => x.setAttribute('aria-checked', String(x === b)));
   }));
 }
@@ -2502,7 +2532,8 @@ function showTitle(){
       <button class="cta ghost" id="rulesBtn">Spielregeln</button>
       <button class="cta ghost" id="badgeBtn">Abzeichen ${owned}/${BADGES.length}</button>
       <button class="cta ghost" id="bonusBtn">Bonuslevel üben</button>
-      <button class="cta ghost" id="fxBtn">Effekte: ${fxOn ? (fxAuto ? 'An' : 'Reduziert') : 'Aus'}</button>
+      <button class="cta ghost" id="setBtn">Einstellungen</button>
+      <button class="cta ghost" id="lbBtn">Bestenliste</button>
     </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard);
   bindSpeed(); bindRole(showTitle); bindVeh();
@@ -2511,10 +2542,165 @@ function showTitle(){
   $('rulesBtn').addEventListener('click', showRules);
   $('badgeBtn').addEventListener('click', showBadges);
   $('bonusBtn').addEventListener('click', () => startGame(null, true));
-  $('fxBtn').addEventListener('click', () => {
-    fxOn = !fxOn; fxAuto = true; fpsLow = 0; store.set('radlader-fx', fxOn ? '1' : '0');
-    $('fxBtn').textContent = `Effekte: ${fxOn ? 'An' : 'Aus'}`;
+  $('setBtn').addEventListener('click', showSettings);
+  $('lbBtn').addEventListener('click', () => showBoard());
+}
+/* ---------- Settings: profile for the leaderboard, graphics ---------- */
+const ORGS = ['Feuerwehr', 'THW', 'Rettungsdienst', 'Bergwacht', 'Wasserwacht', 'Sonstige'];
+const cleanTxt = (v, n) => String(v || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trimStart().slice(0, n);
+function profile(){ return {nick: store.get('radlader-nick', ''), org: store.get('radlader-org', ''), ort: store.get('radlader-ort', '')}; }
+function showSettings(){
+  const pf = profile();
+  card.innerHTML = `
+    <p class="eyebrow">Einstellungen</p>
+    <h2>Dein Profil</h2>
+    <label class="fld"><span class="lbl">Nickname</span><input id="sNick" maxlength="16" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="z. B. Radlader-Rudi" enterkeyhint="next"></label>
+    <div class="speed"><span class="lbl">Organisation</span><div class="seg two" role="radiogroup" aria-label="Organisation">${ORGS.map(o => `<button type="button" role="radio" data-o="${o}" aria-checked="${o === pf.org}">${o}</button>`).join('')}</div></div>
+    <label class="fld"><span class="lbl">Ort</span><input id="sOrt" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="z. B. Rosenheim" enterkeyhint="done"></label>
+    <p class="hint" id="sHint">Bei „Ja“ werden nach jedem beendeten Spiel Nickname, Organisation, Ort und Punkte öffentlich in der Bestenliste angezeigt. Sonst bleibt alles auf diesem Gerät.</p>
+    <div class="speed"><span class="lbl">In Online-Bestenliste eintragen</span><div class="seg two" role="radiogroup" aria-label="Bestenliste">
+      <button type="button" role="radio" data-lb="1" aria-checked="${lbOn()}">Ja</button>
+      <button type="button" role="radio" data-lb="0" aria-checked="${!lbOn()}">Nein</button>
+    </div><p class="hint" id="lbHint"></p></div>
+    <div class="speed"><span class="lbl">Grafik</span><div class="seg two" role="radiogroup" aria-label="Effekte">
+      <button type="button" role="radio" data-fx="1" aria-checked="${fxOn}">Effekte an</button>
+      <button type="button" role="radio" data-fx="0" aria-checked="${!fxOn}">Effekte aus</button>
+    </div></div>
+    <button class="cta" id="back">Fertig</button>`;
+  const nick = $('sNick'), ort = $('sOrt');
+  nick.value = pf.nick; ort.value = pf.ort;
+  const save = () => {
+    nick.value = cleanTxt(nick.value, 16); ort.value = cleanTxt(ort.value, 24);
+    store.set('radlader-nick', nick.value.trim()); store.set('radlader-ort', ort.value.trim());
+  };
+  nick.addEventListener('input', save); ort.addEventListener('input', save);
+  nick.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); ort.focus(); } });
+  ort.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); ort.blur(); } });
+  card.querySelectorAll('.seg button[data-o]').forEach(b => b.addEventListener('click', () => {
+    store.set('radlader-org', b.dataset.o);
+    card.querySelectorAll('.seg button[data-o]').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+  }));
+  card.querySelectorAll('.seg button[data-fx]').forEach(b => b.addEventListener('click', () => {
+    fxOn = b.dataset.fx === '1'; fxAuto = true; fpsLow = 0; store.set('radlader-fx', fxOn ? '1' : '0');
+    card.querySelectorAll('.seg button[data-fx]').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+  }));
+  overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
+  $('back').addEventListener('click', () => { save(); showTitle(); });
+  card.querySelectorAll('.seg button[data-lb]').forEach(b => b.addEventListener('click', () => {
+    save();
+    if (b.dataset.lb === '1' && profile().nick.length < 2){ $('lbHint').textContent = 'Erst einen Nickname mit mindestens 2 Zeichen eingeben.'; nick.focus(); return; }
+    store.set('radlader-lb', b.dataset.lb); $('lbHint').textContent = '';
+    card.querySelectorAll('.seg button[data-lb]').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+  }));
+}
+/* ---------- Online leaderboard (Supabase, only via three RPC functions) ---------- */
+const SB_URL = 'https://vilcplqctxyibyqikted.supabase.co', SB_KEY = 'sb_publishable_k_EodW5Gb5ZoY3TjBxcg-g_92VLO3Nn';
+const lbOn = () => store.get('radlader-lb', '0') === '1' && profile().nick.length >= 2;
+function deviceId(){
+  let id = store.get('radlader-device', '');
+  if (!/^[0-9a-f-]{36}$/.test(id)){
+    try { id = crypto.randomUUID(); } catch(e){
+      id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+    }
+    store.set('radlader-device', id);
+  }
+  return id;
+}
+async function sbRpc(fn, args){
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const to = setTimeout(() => ctl && ctl.abort(), 8000);
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method:'POST', headers:{'apikey': SB_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify(args || {}), signal: ctl ? ctl.signal : undefined});
+    if (!res.ok) return {ok:false, status:res.status};
+    return {ok:true, data: await res.json()};
+  } catch(e){ return {ok:false, status:0}; }
+  finally { clearTimeout(to); }
+}
+function lbQueue(){ try { const q = JSON.parse(store.get('radlader-lbq', '[]')); return Array.isArray(q) ? q : []; } catch(e){ return []; } }
+let lbBusy = false, lbRetry = null;
+async function lbFlush(){
+  if (lbBusy) return 'busy';
+  let q = lbQueue(); if (!q.length) return 'empty';
+  lbBusy = true; let last = 'ok';
+  try {
+    while (q.length){
+      const r = await sbRpc('submit_score', q[0]);
+      if (r.ok && r.data === 'ok'){ q.shift(); last = 'ok'; }
+      else if (r.ok){ last = 'later'; break; }                         /* zu_schnell / besetzt: try again later */
+      else if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429){ q.shift(); last = 'rejected'; }
+      else { last = 'offline'; break; }
+      store.set('radlader-lbq', JSON.stringify(q));
+    }
+    store.set('radlader-lbq', JSON.stringify(q));
+  } finally { lbBusy = false; }
+  if (q.length && !lbRetry) lbRetry = setTimeout(() => { lbRetry = null; lbFlush(); }, 130000);
+  return last;
+}
+/* called when a game ends regularly (game over or overall win), never for practice or an aborted game */
+function lbSubmit(){
+  if (practice || score < 1) return null;
+  if (!lbOn()) return null;
+  const pf = profile();
+  const q = lbQueue().slice(-4);
+  q.push({p_device: deviceId(), p_nick: pf.nick, p_org: ORGS.includes(pf.org) ? pf.org : '', p_ort: pf.ort, p_score: Math.min(score, 300000), p_mode: role});
+  store.set('radlader-lbq', JSON.stringify(q));
+  return lbFlush();
+}
+function lbShowStatusAfter(show, pr){ show(); lbShowStatus(pr); }
+function lbStatusHTML(){ return '<p class="lbstat" id="lbStat"></p>'; }
+function lbShowStatus(pr){
+  const el = () => $('lbStat');
+  if (!pr){ if (el() && !lbOn() && score > 0 && !practice) el().textContent = 'Tipp: In den Einstellungen kannst du dich für die Online-Bestenliste eintragen.'; return; }
+  if (el()) el().textContent = 'Bestenliste: wird eingetragen';
+  pr.then(r => { const e = el(); if (!e) return;
+    e.textContent = r === 'ok' ? 'Bestenliste: eingetragen ✓' : r === 'rejected' ? 'Bestenliste: Eintrag wurde abgelehnt.' : 'Bestenliste: wird nachgereicht, sobald es geht.';
   });
+}
+window.addEventListener('online', () => lbFlush());
+setTimeout(() => lbFlush(), 1500);
+function showBoard(tab, org){
+  tab = tab || 'spieler';
+  card.innerHTML = `
+    <p class="eyebrow">Online-Bestenliste</p>
+    <h2>${tab === 'orte' ? 'Ortswertung' : 'Bestenliste'}</h2>
+    <div class="seg two" role="radiogroup" aria-label="Ansicht">
+      <button type="button" role="radio" data-tab="spieler" aria-checked="${tab !== 'orte'}">Spieler</button>
+      <button type="button" role="radio" data-tab="orte" aria-checked="${tab === 'orte'}">Orte</button>
+    </div>
+    ${tab === 'orte' ? '' : `<div class="chips">${['Alle', ...ORGS].map(o => `<button type="button" data-org="${o}" aria-pressed="${(org || 'Alle') === o}">${o}</button>`).join('')}</div>`}
+    <p class="lbmsg" id="lbMsg">Lade Bestenliste</p>
+    <ol class="lb" id="lbList"></ol>
+    <p class="hint">${tab === 'orte' ? 'Pro Ort zählen die besten Spiele aller Spieler zusammen.' : 'Jedes Handy steht mit seinem besten Spiel drin. Blau: THW-Modus, Rot: Feuerwehr-Modus.'}</p>
+    <div class="sub">
+      <button class="cta ghost" id="lbReload">Neu laden</button>
+      <button class="cta" id="back">Zurück</button>
+    </div>`;
+  overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
+  card.querySelectorAll('.seg button[data-tab]').forEach(b => b.addEventListener('click', () => showBoard(b.dataset.tab, org)));
+  card.querySelectorAll('.chips button').forEach(b => b.addEventListener('click', () => showBoard('spieler', b.dataset.org === 'Alle' ? null : b.dataset.org)));
+  $('lbReload').addEventListener('click', () => showBoard(tab, org));
+  $('back').addEventListener('click', () => (state === 'over' ? showOver(true) : state === 'won' ? showWin(true) : showTitle()));
+  const msg = $('lbMsg'), list = $('lbList'), myNick = profile().nick.toLowerCase();
+  const fill = r => {
+    if ($('lbList') !== list) return;               /* the user already left this screen */
+    if (!r.ok){ msg.textContent = 'Keine Verbindung zur Bestenliste. Bist du online?'; return; }
+    if (!r.data.length){ msg.textContent = tab === 'orte' ? 'Noch kein Ort eingetragen.' : 'Noch keine Einträge. Sei der Erste!'; return; }
+    msg.hidden = true;
+    r.data.forEach(row => {
+      const li = document.createElement('li'), rk = document.createElement('span'), nm = document.createElement('div'), b = document.createElement('b'), sm = document.createElement('span'), pt = document.createElement('span');
+      rk.className = 'rk'; nm.className = 'nm'; pt.className = 'pt';
+      rk.textContent = row.rang; pt.textContent = Number(row.punkte).toLocaleString('de-DE');
+      if (tab === 'orte'){ li.className = 'ort'; b.textContent = row.ort; sm.textContent = `${row.spieler} Spieler`; }
+      else {
+        li.className = row.modus === 'fw' ? 'fw' : 'thw';
+        if (myNick && String(row.nick).toLowerCase() === myNick) li.classList.add('me');
+        b.textContent = row.nick; sm.textContent = [row.org, row.ort].filter(Boolean).join(' · ') || ' ';
+      }
+      nm.append(b, sm); li.append(rk, nm, pt); list.appendChild(li);
+    });
+    requestAnimationFrame(fitCard);
+  };
+  (tab === 'orte' ? sbRpc('ortswertung', {}) : sbRpc('leaderboard', org ? {p_org: org} : {})).then(fill);
 }
 function showRules(){
   card.innerHTML = `
@@ -2526,6 +2712,7 @@ function showRules(){
       <li>Nach Einsatz 2 kommt das Bonuslevel in der Altstadt. Du fährst den Rettungsdienst, niemand jagt dich. Im Feuerwehr-Modus wütet ein Großbrand, im THW-Modus ein Hochwasser, und drei Einheiten kämpfen dagegen.</li>
       <li>Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten und bring sie zu den Einheiten, sonst geht ihnen die Kraft aus. Du transportierst immer nur eins.</li>
       <li>Ab 5 Geretteten gibt es ein Extraleben. Bedeckt die Gefahr 40 % der Karte, ist der Bonus vorbei. Ein Leben kostet das Bonuslevel nie.</li>
+      <li>Das Tempo zählt bei allen Punkten mit: Gemütlich ×0,5, Normal ×1, Zügig ×1,5, Rasant ×2. Die Punktwerte oben gelten für Normal.</li>
       <li>Jeder geschaffte Einsatz bringt ein Extraleben.</li>
       <li>Erwischte Verfolger bleiben 6 Sekunden auf der Wache.</li>
       <li>In den anderen zwei Einsätzen kommt je ein Ereignis: Ölspur (rutschig, mit Bindemittel beseitigen), Stromausfall (nur Scheinwerfer und Blaulicht) oder Unfallstelle (ein Gang gesperrt).</li>
@@ -2585,7 +2772,7 @@ function fillEarned(){
     el.appendChild(d);
   });
 }
-function showOver(){
+function showOver(again){
   card.innerHTML = `
     <p class="eyebrow">Einsatz beendet</p>
     <h2>${R().overH}</h2>
@@ -2596,17 +2783,20 @@ function showOver(){
     </div>
     <p>${score >= best && score > 0 ? 'Neuer Rekord. Sauber geräumt!' : R().overP}</p>
     ${earnedHTML()}
+    ${lbStatusHTML()}
     ${speedHTML()}
     <div class="sub">
       <button class="cta" id="go">Nochmal</button>
       <button class="cta ghost" id="home">Startseite</button>
+      <button class="cta ghost" id="lbBtn">Bestenliste</button>
     </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
   fillEarned(); bindSpeed();
+  $('lbBtn').addEventListener('click', () => showBoard());
   $('home').addEventListener('click', showTitle);
   $('go').addEventListener('click', () => startGame());
 }
-function showWin(){
+function showWin(again){
   card.innerHTML = `
     <p class="eyebrow">Alle ${EINSATZ_N} Einsätze geschafft</p>
     <h2>Gesamtsieg!</h2>
@@ -2617,13 +2807,16 @@ function showWin(){
     </div>
     <p>${R().winP}</p>
     ${earnedHTML()}
+    ${lbStatusHTML()}
     ${speedHTML()}
     <div class="sub">
       <button class="cta" id="go">Nochmal</button>
       <button class="cta ghost" id="home">Startseite</button>
+      <button class="cta ghost" id="lbBtn">Bestenliste</button>
     </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
   fillEarned(); bindSpeed();
+  $('lbBtn').addEventListener('click', () => showBoard());
   $('home').addEventListener('click', showTitle);
   $('go').addEventListener('click', () => startGame());
 }
@@ -2675,12 +2868,12 @@ function startGame(run, practiceBonus){
   ensureAudio(); sfx.start(); requestWake();
   practice = !!practiceBonus;
   if (run){ const runRole = run.role === 'fw' ? 'fw' : 'thw'; if (runRole !== role) setRole(runRole); }
-  score = 0; lives = 3; level = 1;
+  score = 0; rawScore = 0; lives = 3; level = 1; showMult();
   gameBadges = []; $('toast').hidden = true; toastT = 0;
   pickPlans();
   loadMap(1); resetGrid();
   if (run && run.grid){
-    score = run.score; lives = run.lives; level = Math.min(Math.max(run.level|0, 1), MAX_LEVEL);
+    score = run.score; rawScore = run.raw != null ? run.raw : run.score; lives = run.lives; level = Math.min(Math.max(run.level|0, 1), MAX_LEVEL);
     loadMap(level); resetGrid();
     if (!isRescue()) grid = run.grid.map(r => r.split(''));
     pelletsLeft = 0; for (const r of grid) for (const c of r) if (c === '.' || c === 'o') pelletsLeft++;
@@ -2746,6 +2939,7 @@ $('hotBonus').addEventListener('click', () => { if (splashEl.hidden) return; spl
 markSplashRole(); fitSplash();
 window.addEventListener('resize', fitSplash);
 window.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;
   if (!splashEl.hidden && (e.code === 'Enter' || e.code === 'Space')){ e.preventDefault(); $('hotStart').click(); return; }
   if (e.code in KEYS){ e.preventDefault(); setWant(KEYS[e.code]); return; }
   if (e.code === 'KeyP' || e.code === 'Escape'){ state === 'paused' ? resume() : pause(); return; }
