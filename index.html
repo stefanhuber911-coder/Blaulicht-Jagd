@@ -374,23 +374,23 @@ const BERG_MAP = {name:'Lawinenhang', wall:'#39414d', edge:'#b9c8da', floor:'sch
 const WASSER_MAP = {name:'Hochwasser am Wehr', wall:'#2c4a35', edge:'#7fb08a', floor:'wasser', mat:'ufer', rescue:true, kind:'wasser', rows:[
     "#################",
     "#o.............o#",
-    "#.##.#.###.#.##.#",
-    "#....#.....#....#",
-    "#.##.#.###.#.##.#",
+    "#.#.##.#.#.##.#.#",
+    "#.#....#.#....#.#",
+    "#...##.....##...#",
+    "#.#....#.#....#.#",
+    "#.#.##.#.#.##.#.#",
+    "#...#...#...#...#",
+    "##.##.#.#.#.##.##",
+    "#.....#...#.....#",
+    "#.###.#.#.#.###.#",
+    "#...#...#...#...#",
+    "#.#.#.#.#.#.#.#.#",
+    "#.#...#...#...#.#",
+    "#.###.#.#.#.###.#",
+    "#o......P......o#",
+    "#.##.###.###.##.#",
     "#...............#",
-    "####.##.#.##.####",
-    "####.........####",
-    "####.###-###.####",
-    "    .#GGGGG#.    ",
-    "####.#######.####",
-    "####.........####",
-    "#...#.##.##.#...#",
-    "#.#.....#.....#.#",
-    "#.#.###.#.###.#.#",
-    "#o..#...P...#..o#",
-    "#.#.#.#####.#.#.#",
-    "#.#...........#.#",
-    "#.###.##.##.###.#",
+    "#.##.##.#.##.##.#",
     "#...............#",
     "#################"]};
 /* the bonus slot after Einsatz 2 changes from game to game */
@@ -1090,15 +1090,15 @@ function bergArrive(p, c){
 
 /* ---------- Wasserwacht bonus: swimmers drift down to the weir, catch them with the boat and bring them to a jetty ---------- */
 const WASSER_N = 8, WASSER_OK = 5, SWIM_V = 1.5, BOAT_CAP = 2, RING_HOLD = 9, RING_RANGE = 3.5, RING_RESPAWN = 12;
-const WEHR = [{x:7, y:19}, {x:8, y:19}, {x:9, y:19}], STEGE = [{x:2, y:5}, {x:14, y:5}, {x:8, y:11}];   /* far from the weir: catching costs a trip upstream */
-let FLOW = null;   // direction of the current on every open tile
+const WEHR = [{x:7, y:19}, {x:8, y:19}, {x:9, y:19}], STEGE = [{x:1, y:9}, {x:15, y:9}, {x:8, y:3}];   /* far from the weir: catching costs a trip upstream */
+let FLOW = null, FLOWD = null;   // direction of the current and distance to the weir on every open tile
 const isSteg = (x, y) => STEGE.some(d => d.x === x && d.y === y);
 const isWehr = (x, y) => WEHR.some(d => d.x === x && d.y === y);
 function buildFlow(){
   const dist = new Map(), q = [];
   WEHR.forEach(w => { dist.set(key(w.x, w.y), 0); q.push([w.x, w.y]); });
   for (let i = 0; i < q.length; i++){ const [x, y] = q[i]; for (let d = 0; d < 4; d++){ const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny); if (passM(nx, ny) && !dist.has(k)){ dist.set(k, dist.get(key(x, y)) + 1); q.push([nx, ny]); } } }
-  FLOW = new Map();
+  FLOW = new Map(); FLOWD = dist;
   dist.forEach((dv, k) => {
     const x = k % W, y = (k / W) | 0;
     if (dv === 0){ FLOW.set(k, 2); return; }
@@ -1109,8 +1109,9 @@ function setupWasser(){
   buildFlow();
   rescue = {kind:'wasser', n:WASSER_N, ok:WASSER_OK, persons:[], haz:new Set(), src:new Set(), units:[], saved:0, lost:0, introT:2.8, done:false, burned:false, openN:1,
     spawnT: 2, spawned:0, load:[], ring:0, stations:[], idleT:0, hintAt:-9};
+  // people fall into the water anywhere in the upper part, so they take many different ways down
   const spawns = [];
-  for (let y = 1; y <= 3; y++) for (let x = 0; x < W; x++) if (passM(x, y) && grid[y][x] !== 'o') spawns.push({x, y});
+  FLOWD.forEach((dv, k) => { const x = k % W, y = (k / W) | 0; if (dv >= 12 && grid[y][x] !== 'o' && !isSteg(x, y)) spawns.push({x, y}); });
   shuffle(spawns);
   for (let i = 0; i < WASSER_N; i++){ const sp = spawns[i % spawns.length]; rescue.persons.push({tx:sp.x, ty:sp.y, x:sp.x, y:sp.y, dir:-1, prog:0, state:'pending', holdT:0, id:i}); }
 }
@@ -1746,7 +1747,7 @@ function update(dt){
 let S = 20, dpr = 1, wallImg = null, wallFlash = null;
 function isWall(x,y){
   if (y < 0 || y >= H) return true;
-  if (x < 0 || x >= W) return y !== TUN_Y;
+  if (x < 0 || x >= W) return y !== TUN_Y || MAP[TUN_Y][0] === '#';
   return MAP[y][x] === '#';
 }
 const isWallD = (x, y) => isWall(x, y) && !(y >= 0 && y < H && x >= 0 && x < W && RIVER.has(y*W + x));
@@ -1906,7 +1907,7 @@ function buildWalls(fill, edge, theme){
   }
   // gate: red/white barrier
   const gx = 8*S, gy = 8*S + S*.42, gh = S*.16;
-  for (let k=0;k<4;k++){ g.fillStyle = k % 2 ? '#f2f2f2' : '#d8252f'; g.fillRect(gx + k*S/4, gy, S/4, gh); }
+  if (MAP[8][8] === '-') for (let k=0;k<4;k++){ g.fillStyle = k % 2 ? '#f2f2f2' : '#d8252f'; g.fillRect(gx + k*S/4, gy, S/4, gh); }
   return c;
 }
 function resize(){
@@ -3410,7 +3411,7 @@ function showRules(){
       <li>Nach Einsatz 2 kommt ein Bonuslevel, das von Spiel zu Spiel wechselt. Niemand jagt dich, und ein Leben kostet es nie.</li>
       <li>Rettungsdienst: In der Altstadt wütet ein Großbrand oder ein Hochwasser. Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten für die drei Einheiten, sonst geht ihnen die Kraft aus. Ab 5 Geretteten gibt es ein Extraleben, bei 40 % Gefahr ist Schluss.</li>
       <li>Bergwacht: Im Nebel liegen 6 Verschüttete. Das Suchgerät (LVS) piept schneller, je näher du kommst. Drüberfahren gräbt aus, dann ab zum Hubschrauber (H). Lawinen sperren kurz einen Streifen, wer darin liegt, hat nur noch begrenzt Zeit. Du hast 60 Sekunden. Der Lawinenhund in den Ecken zeigt 10 Sekunden lang die Richtung. Ab 4 Geretteten gibt es ein Extraleben.</li>
-      <li>Wasserwacht: Hochwasser, alle Straßen sind Flüsse und fließen zum Wehr. Flussabwärts ist dein Boot schnell, flussaufwärts langsam, und wer stehen bleibt, treibt ab. 8 Schwimmer treiben nacheinander herunter: einsammeln (2 passen ins Boot) und an einem Steg abgeben. Rettungsringe in den Ecken halten einen Schwimmer 9 Sekunden fest. Ab 5 Geretteten gibt es ein Extraleben.</li>
+      <li>Wasserwacht: Hochwasser, alle Straßen sind Flüsse und fließen zum Wehr. Flussabwärts ist dein Boot schnell, flussaufwärts langsam, und wer stehen bleibt, treibt ab. 8 Personen fallen nacheinander irgendwo ins Wasser und treiben zum Wehr: einsammeln (2 passen ins Boot) und an einem Steg abgeben. Rettungsringe in den Ecken halten einen Schwimmer 9 Sekunden fest. Ab 5 Geretteten gibt es ein Extraleben.</li>
       <li>Das Tempo zählt bei allen Punkten mit: Gemütlich ×0,5, Normal ×1, Zügig ×1,5, Rasant ×2. Die Punktwerte oben gelten für Normal.</li>
       <li>Jeder geschaffte Einsatz bringt ein Extraleben.</li>
       <li>Erwischte Verfolger bleiben 6 Sekunden auf der Wache.</li>
