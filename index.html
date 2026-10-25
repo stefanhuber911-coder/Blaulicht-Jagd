@@ -370,9 +370,32 @@ const BERG_MAP = {name:'Lawinenhang', wall:'#39414d', edge:'#b9c8da', floor:'sch
     "#.###...#...###.#",
     "#.......#.......#",
     "#################"]};
+/* Bonus level of the Wasserwacht: flooded quarter, every street is a river flowing down to the weir */
+const WASSER_MAP = {name:'Hochwasser am Wehr', wall:'#2c4a35', edge:'#7fb08a', floor:'wasser', mat:'ufer', rescue:true, kind:'wasser', rows:[
+    "#################",
+    "#o.............o#",
+    "#.##.#.###.#.##.#",
+    "#....#.....#....#",
+    "#.##.#.###.#.##.#",
+    "#...............#",
+    "####.##.#.##.####",
+    "####.........####",
+    "####.###-###.####",
+    "    .#GGGGG#.    ",
+    "####.#######.####",
+    "####.........####",
+    "#...#.##.##.#...#",
+    "#.#.....#.....#.#",
+    "#.#.###.#.###.#.#",
+    "#o..#...P...#..o#",
+    "#.#.#.#####.#.#.#",
+    "#.#...........#.#",
+    "#.###.##.##.###.#",
+    "#...............#",
+    "#################"]};
 /* the bonus slot after Einsatz 2 changes from game to game */
-const BONUS_KINDS = ['rd', 'berg'];   /* the Wasserwacht follows */
-const BONUS_INFO = {rd:{name:'Rettungsdienst', color:'#9ff0a6'}, berg:{name:'Bergwacht', color:'#ffb3b3'}};
+const BONUS_KINDS = ['rd', 'berg', 'wasser'];
+const BONUS_INFO = {rd:{name:'Rettungsdienst', color:'#9ff0a6'}, berg:{name:'Bergwacht', color:'#ffb3b3'}, wasser:{name:'Wasserwacht', color:'#8fd3ff'}};
 let bonusKind = 'rd';
 let curMap = LEVEL_MAPS[0], MAP = curMap.rows.map(r => r.replace(/~/g, '#')), RIVER = new Set();
 const W = 17, H = 21, TUN_Y = 9;
@@ -447,6 +470,7 @@ const BADGES = [
   {id:'nacht', n:{thw:'Nachtsicht', fw:'Nachtsicht'}, d:'Einen Stromausfall ohne Lebensverlust überstanden'},
   {id:'sieg', n:{thw:'Gesamtsieg', fw:'Gesamtsieg'}, d:'Alle 4 Einsätze geschafft'},
   {id:'retter', n:{thw:'Lebensretter', fw:'Lebensretter'}, d:'Im Rettungsdienst-Bonus alle 8 Personen gerettet'},
+  {id:'schwimmer', n:{thw:'Rettungsschwimmer', fw:'Rettungsschwimmer'}, d:'Im Wasserwacht-Bonus alle 8 Personen gerettet'},
   {id:'lawinenhund', n:{thw:'Lawinenhund', fw:'Lawinenhund'}, d:'Im Bergwacht-Bonus alle 6 Verschütteten gerettet'},
   {id:'versorger', n:{thw:'Versorger', fw:'Versorger'}, d:{thw:'Im Rettungsdienst-Bonus geschafft, ohne dass eine THW-Einheit erschöpft war', fw:'Im Rettungsdienst-Bonus geschafft, ohne dass eine Feuerwehr-Einheit erschöpft war'}},
   {id:'leit', n:{thw:'Leitstellen-Liebling', fw:'Leitstellen-Liebling'}, d:'Gesamtsieg auf Tempo „Rasant“'}
@@ -505,6 +529,17 @@ const FUNK = {
     rescueFail:['Suche beendet. Zu viele Verschüttete nicht gefunden.'],
     timeout:['Wetter schlägt um, Suche abgebrochen. Alle runter vom Berg!']
   },
+  wasser: {
+    rescue:['Leitstelle an Wasserwacht 1: Hochwasser, Personen im Wasser! Abfangen, bevor sie das Wehr erreichen!','Wasserwacht 1, Pegel steigt. Schwimmer treiben Richtung Wehr, los!'],
+    swimmer:['Erster Schwimmer treibt ab. Boot klar!'],
+    saved:['Personen am Steg übergeben. Weiter!','Rettungsdienst übernimmt am Steg. Zurück aufs Wasser!'],
+    full:['Boot voll. Ab zum nächsten Steg!'],
+    ring:['Rettungsring an Bord. Damit hältst du einen Schwimmer fest.'],
+    lost:['Person über das Wehr gespült!','Leitstelle: Eine Person hat das Wehr erreicht.'],
+    allSaved:['Alle Personen aus dem Wasser. Starke Leistung, Wasserwacht!'],
+    rescueOk:['Einsatz am Wehr abgeschlossen. Gute Arbeit.'],
+    rescueFail:['Einsatz beendet. Zu viele Personen über das Wehr.']
+  },
   both: {
     kat:['Katastrophenalarm. Alle Kräfte zum Deich, Streit später.','Leitstelle: Pegel steigt. THW und Feuerwehr gemeinsam an den Deich!'],
     katWin:['Deich hält. Danke an alle Kräfte. Ab jetzt wieder jeder gegen jeden.','Pegel stabil. Gute Zusammenarbeit, Leute.'],
@@ -528,7 +563,7 @@ const FUNK = {
 const funkLast = {};
 let funkT = 0;
 function funk(key){
-  const list = (rescue && rescue.kind === 'berg' && FUNK.berg[key]) || FUNK[role][key] || FUNK.both[key];
+  const list = (rescue && FUNK[rescue.kind] && FUNK[rescue.kind][key]) || FUNK[role][key] || FUNK.both[key];
   if (!list) return;
   let i = (Math.random() * list.length) | 0;
   if (list.length > 1 && i === funkLast[key]) i = (i + 1) % list.length;
@@ -802,6 +837,7 @@ function clearHazardAround(x0, y0, r){
 }
 function rescueTick(dt){
   if (rescue.kind === 'berg'){ bergTick(dt); return; }
+  if (rescue.kind === 'wasser'){ wasserTick(dt); return; }
   if (rescue.introT > 0) rescue.introT -= dt;
   rescue.spreadT -= dt;
   if (rescue.spreadT <= 0){
@@ -838,10 +874,10 @@ function rescueTick(dt){
   });
 }
 function checkRescueEnd(){
-  if (rescue.done || rescue.persons.some(p => p.state === 'wait' || p.state === 'carried')) return;
+  if (rescue.done || rescue.persons.some(p => ['wait', 'carried', 'pending', 'drift', 'held'].includes(p.state))) return;
   rescue.done = true;
   if (rescue.saved >= rescue.ok){
-    if (rescue.saved === rescue.n){ addScore(2000); award(rescue.kind === 'berg' ? 'lawinenhund' : 'retter'); funk('allSaved'); } else funk('rescueOk');
+    if (rescue.saved === rescue.n){ addScore(2000); award(rescue.kind === 'berg' ? 'lawinenhund' : rescue.kind === 'wasser' ? 'schwimmer' : 'retter'); funk('allSaved'); } else funk('rescueOk');
     if (rescue.kind === 'rd' && !rescue.everTired) award('versorger');
     if (rescue.kind === 'berg' && rescue.timeLeft > 1){ const tb = addScore(Math.round(rescue.timeLeft) * 10); floats.push({x:player.tx, y:player.ty - 2.2, text:`Zeitbonus ${tb}`, t:0}); }
     setState('clear'); sfx.clear(); lives++; renderLives();
@@ -1052,6 +1088,109 @@ function bergArrive(p, c){
   return false;
 }
 
+/* ---------- Wasserwacht bonus: swimmers drift down to the weir, catch them with the boat and bring them to a jetty ---------- */
+const WASSER_N = 8, WASSER_OK = 5, SWIM_V = 1.5, BOAT_CAP = 2, RING_HOLD = 9, RING_RANGE = 3.5, RING_RESPAWN = 12;
+const WEHR = [{x:7, y:19}, {x:8, y:19}, {x:9, y:19}], STEGE = [{x:2, y:5}, {x:14, y:5}, {x:8, y:11}];   /* far from the weir: catching costs a trip upstream */
+let FLOW = null;   // direction of the current on every open tile
+const isSteg = (x, y) => STEGE.some(d => d.x === x && d.y === y);
+const isWehr = (x, y) => WEHR.some(d => d.x === x && d.y === y);
+function buildFlow(){
+  const dist = new Map(), q = [];
+  WEHR.forEach(w => { dist.set(key(w.x, w.y), 0); q.push([w.x, w.y]); });
+  for (let i = 0; i < q.length; i++){ const [x, y] = q[i]; for (let d = 0; d < 4; d++){ const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny); if (passM(nx, ny) && !dist.has(k)){ dist.set(k, dist.get(key(x, y)) + 1); q.push([nx, ny]); } } }
+  FLOW = new Map();
+  dist.forEach((dv, k) => {
+    const x = k % W, y = (k / W) | 0;
+    if (dv === 0){ FLOW.set(k, 2); return; }
+    for (const d of [2, 1, 3, 0]){ const nk = key(wrapX(x + DX[d]), y + DY[d]); if (dist.get(nk) === dv - 1){ FLOW.set(k, d); return; } }
+  });
+}
+function setupWasser(){
+  buildFlow();
+  rescue = {kind:'wasser', n:WASSER_N, ok:WASSER_OK, persons:[], haz:new Set(), src:new Set(), units:[], saved:0, lost:0, introT:2.8, done:false, burned:false, openN:1,
+    spawnT: 2, spawned:0, load:[], ring:0, stations:[], idleT:0, hintAt:-9};
+  const spawns = [];
+  for (let y = 1; y <= 3; y++) for (let x = 0; x < W; x++) if (passM(x, y) && grid[y][x] !== 'o') spawns.push({x, y});
+  shuffle(spawns);
+  for (let i = 0; i < WASSER_N; i++){ const sp = spawns[i % spawns.length]; rescue.persons.push({tx:sp.x, ty:sp.y, x:sp.x, y:sp.y, dir:-1, prog:0, state:'pending', holdT:0, id:i}); }
+}
+function swimArrive(e){
+  if (isWehr(e.tx, e.ty)){
+    e.state = 'lost'; e.dir = -1; rescue.lost++; funk('lost'); sfx.katFail();
+    emit(14, e.tx + .5, e.ty + .7, {speed:2.4, vy:-1, grav:3, size:.07, life:.6, kind:'dot', layer:1, color:['#ffffff','#bfe2ff']});
+    floats.push({x:e.tx, y:e.ty - 1, text:'Über das Wehr!', t:0});
+    checkRescueEnd(); return;
+  }
+  const f = FLOW.get(key(e.tx, e.ty));
+  e.dir = f != null && passM(wrapX(e.tx + DX[f]), e.ty + DY[f]) ? f : -1;
+}
+function flowMul(){
+  if (!rescue || rescue.kind !== 'wasser' || player.dir < 0 || isSteg(player.tx, player.ty)) return 1;
+  const f = FLOW.get(key(player.tx, player.ty));
+  if (f == null) return 1;
+  return player.dir === f ? 1.4 : player.dir === opp(f) ? .5 : .95;
+}
+function wasserTick(dt){
+  const m = TEMPI[tempo].m;
+  if (rescue.introT > 0) rescue.introT -= dt;
+  if (rescue.msg){ rescue.msg.t -= dt; if (rescue.msg.t <= 0) rescue.msg = null; }
+  // new swimmers come down from the top
+  if (rescue.spawned < WASSER_N){
+    rescue.spawnT -= dt;
+    if (rescue.spawnT <= 0){
+      const sw = rescue.persons[rescue.spawned++]; sw.state = 'drift'; swimArrive(sw);
+      // now and then two people at once
+      if (rescue.spawned < WASSER_N && rescue.spawned > 1 && Math.random() < .15){ const s2 = rescue.persons[rescue.spawned++]; s2.state = 'drift'; swimArrive(s2); }
+      rescue.spawnT = (3.4 + Math.random()*2) / m;
+      if (rescue.spawned === 1) funk('swimmer');
+    }
+  }
+  // ring stations come back after a while
+  rescue.stations.forEach(st => { if (st.t > 0){ st.t -= dt; if (st.t <= 0) grid[st.y][st.x] = 'o'; } });
+  const pp = pos(player);
+  rescue.persons.forEach(sw => {
+    if (sw.state === 'held'){ sw.holdT -= dt; if (sw.holdT <= 0){ sw.state = 'drift'; if (sw.dir < 0 && sw.prog === 0) swimArrive(sw); } }
+    else if (sw.state === 'drift') move(sw, SWIM_V * m * dt, swimArrive);
+    if (sw.state !== 'drift' && sw.state !== 'held') return;
+    // pick up when the boat touches the swimmer
+    const q = pos(sw); let dx = Math.abs(q.x - pp.x); dx = Math.min(dx, W - dx);
+    if (dx < .75 && Math.abs(q.y - pp.y) < .75){
+      if (rescue.load.length < BOAT_CAP){
+        sw.state = 'carried'; rescue.load.push(sw.id);
+        floats.push({x:q.x, y:q.y - .8, text:String(addScore(100)), t:0}); sfx.found();
+        emit(10, q.x + .5, q.y + .5, {speed:2, size:.06, life:.5, kind:'dot', layer:1, color:['#ffffff','#bfe2ff']});
+        if (rescue.load.length >= BOAT_CAP) funk('full');
+        rescue.msg = {text: rescue.load.length >= BOAT_CAP ? 'Boot voll!' : 'An Bord!', sub: rescue.load.length >= BOAT_CAP ? 'Ab zum Steg' : 'Noch ein Platz frei · oder zum Steg', t:1.1};
+      } else if (!(rescue.hintAt > tNow - 2.5)){ rescue.hintAt = tNow; floats.push({x:pp.x, y:pp.y - 1.2, text:'Boot voll, erst zum Steg', t:0}); }
+    }
+  });
+  // throw the life ring at a drifting swimmer close by
+  if (rescue.ring > 0){
+    let best = null, bd = RING_RANGE;
+    rescue.persons.forEach(sw => { if (sw.state !== 'drift') return; const q = pos(sw); let dx = Math.abs(q.x - pp.x); dx = Math.min(dx, W - dx); const d = Math.hypot(dx, q.y - pp.y); if (d > 1.3 && d < bd){ bd = d; best = sw; } });
+    if (best){ rescue.ring--; best.state = 'held'; best.holdT = RING_HOLD; const q = pos(best); floats.push({x:q.x, y:q.y - .9, text:'Ring!', t:0}); sfx.drop(); }
+  }
+  // the current pushes a boat that stands still on open water
+  if (player.dir < 0 && !isSteg(player.tx, player.ty)){
+    rescue.idleT += dt;
+    const f = FLOW.get(key(player.tx, player.ty));
+    if (rescue.idleT > .35 && f != null && canPlayer(player.tx + DX[f], player.ty + DY[f])){ player.dir = f; rescue.idleT = 0; }
+  } else rescue.idleT = 0;
+}
+function wasserArrive(p, c){
+  if (c === 'o' && rescue.ring === 0){
+    grid[p.ty][p.tx] = ' '; rescue.ring = 1; rescue.stations.push({x:p.tx, y:p.ty, t:RING_RESPAWN});
+    floats.push({x:p.tx, y:p.ty - .8, text:String(addScore(50)), t:0}); sfx.load(); funk('ring');
+  }
+  if (rescue.load.length && isSteg(p.tx, p.ty)){
+    const n = rescue.load.length;
+    rescue.load.forEach(id => { rescue.persons[id].state = 'saved'; rescue.saved++; });
+    rescue.load = [];
+    floats.push({x:p.tx, y:p.ty - .8, text:String(addScore(500 * n)), t:0}); sfx.katWin(); funk('saved');
+    if (rescue.saved + rescue.lost < rescue.n) rescue.msg = {text:'Am Steg übergeben!', sub:`${rescue.saved} von ${rescue.n} gerettet`, t:1.1};
+    checkRescueEnd();
+  }
+}
 function nextBonusKind(){
   const i = parseInt(store.get('radlader-bonus-i', '0'), 10) || 0;
   store.set('radlader-bonus-i', String(i + 1));
@@ -1091,7 +1230,7 @@ function resetGrid(){
   if (isRescue()){
     for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (grid[y][x] === '.') grid[y][x] = ' ';
     pelletsTotal = pelletsLeft = 4; b5Plan = -1; katAt = -1; evAt = -1;
-    if (curMap.kind === 'berg') setupBerg(); else setupRescue();
+    if (curMap.kind === 'berg') setupBerg(); else if (curMap.kind === 'wasser') setupWasser(); else setupRescue();
   }
 }
 function resetPositions(){
@@ -1147,6 +1286,7 @@ function reverse(e){
 function playerArrive(p){
   const c = grid[p.ty] && grid[p.ty][p.tx];
   if (rescue && rescue.kind === 'berg' && state === 'play'){ if (bergArrive(p, c)) return; }
+  else if (rescue && rescue.kind === 'wasser' && state === 'play') wasserArrive(p, c);
   else if (rescue && state === 'play'){
     if (c === 'o'){ grid[p.ty][p.tx] = ' '; addScore(50); startFright(); clearHazardAround(p.tx, p.ty, 2); }
     if (p.person == null && !p.crate && p.tx === VERS.x && p.ty === VERS.y){ p.crate = true; sfx.load(); }
@@ -1230,7 +1370,7 @@ function bfs(targets){
 }
 let DEPOT_DIST = null, GAP_DIST = null;
 function loadMap(lv){
-  curMap = lv === 3 && bonusKind === 'berg' ? BERG_MAP : LEVEL_MAPS[Math.min(Math.max(lv, 1), LEVEL_MAPS.length) - 1];
+  curMap = lv === 3 && bonusKind === 'berg' ? BERG_MAP : lv === 3 && bonusKind === 'wasser' ? WASSER_MAP : LEVEL_MAPS[Math.min(Math.max(lv, 1), LEVEL_MAPS.length) - 1];
   MAP = curMap.rows.map(r => r.replace(/~/g, '#'));
   RIVER = new Set();
   curMap.rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === '~') RIVER.add(y*W + x); }));
@@ -1521,7 +1661,7 @@ function update(dt){
   const slipping = ev && ev.type === 'oil' && (onOil(player.tx, player.ty) || (player.dir >= 0 && onOil(wrapX(player.tx + DX[player.dir]), player.ty + DY[player.dir])));
   if (!slipping && player.dir >= 0 && player.want === opp(player.dir) && player.prog > 0){ reverse(player); player.face = player.dir; }
   const pBefore = pos(player);
-  if (!(rescue && rescue.hold > 0)) move(player, sp.p * (inFlood(pBefore.y) ? .55 : 1) * (player.person != null ? .9 : 1) * dt, playerArrive);
+  if (!(rescue && rescue.hold > 0)) move(player, flowMul() * sp.p * (inFlood(pBefore.y) ? .55 : 1) * (player.person != null ? .9 : 1) * dt, playerArrive);
   if (state !== 'play') return;
   const pAfter = pos(player);
   if (pAfter.x !== pBefore.x || pAfter.y !== pBefore.y) player.anim += dt * 14;
@@ -1614,7 +1754,7 @@ const isWallD = (x, y) => isWall(x, y) && !(y >= 0 && y < H && x >= 0 && x < W &
 function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function paintFloor(g, kind){
   const w = W*S, h = H*S, r = rng(kind.length * 977 + 13);
-  const base = {kies:'#15140f', beton:'#121419', pflaster:'#14121b', asphalt:'#101215', industrie:'#141412', schnee:'#1d2532'}[kind] || COL.night;
+  const base = {kies:'#15140f', beton:'#121419', pflaster:'#14121b', asphalt:'#101215', industrie:'#141412', schnee:'#1d2532', wasser:'#0f3358'}[kind] || COL.night;
   g.fillStyle = base; g.fillRect(0, 0, w, h);
   if (kind === 'kies'){
     for (let i = 0; i < W*H*7; i++){ g.fillStyle = ['#1d1b15','#221f18','#1a1813','#24211a'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, .5 + r()*S*.07, 0, Math.PI*2); g.fill(); }
@@ -1634,6 +1774,8 @@ function paintFloor(g, kind){
   } else if (kind === 'schnee'){
     for (let i = 0; i < W*H*3; i++){ g.fillStyle = `rgba(225,235,250,${.03 + r()*.06})`; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.1 + r()*.3), S*(.05 + r()*.12), r()*3, 0, Math.PI*2); g.fill(); }
     for (let i = 0; i < W*H*6; i++){ g.fillStyle = `rgba(255,255,255,${.05 + r()*.12})`; g.fillRect(r()*w, r()*h, 1, 1); }
+  } else if (kind === 'wasser'){
+    for (let i = 0; i < W*H*4; i++){ g.fillStyle = `rgba(${60 + r()*60},${130 + r()*60},${200 + r()*55},${.05 + r()*.08})`; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.1 + r()*.3), S*(.03 + r()*.06), 0, 0, Math.PI*2); g.fill(); }
   } else if (kind === 'industrie'){
     g.strokeStyle = 'rgba(255,255,255,.03)'; g.lineWidth = 1;
     for (let x = 0; x <= W; x += 2){ g.beginPath(); g.moveTo(x*S + .5, 0); g.lineTo(x*S + .5, h); g.stroke(); }
@@ -1660,6 +1802,9 @@ function paintMaterial(g, kind, fill){
     for (let i = 0; i < W*H*4; i++){ g.fillStyle = `rgba(0,0,0,${r()*.08})`; g.fillRect(r()*w, r()*h, 2, 2); }
   } else if (kind === 'hecke'){
     for (let i = 0; i < W*H*9; i++){ g.fillStyle = ['#2a5530','#24492a','#336b3a','#1d3d22'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, S*(.06 + r()*.1), 0, Math.PI*2); g.fill(); }
+  } else if (kind === 'ufer'){
+    for (let i = 0; i < W*H*7; i++){ g.fillStyle = ['#2f5a37','#28502f','#3a6a3f','#24452a'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, S*(.05 + r()*.09), 0, Math.PI*2); g.fill(); }
+    for (let i = 0; i < W*H*1.5; i++){ g.fillStyle = `rgba(${150 + r()*40},${145 + r()*35},${130 + r()*30},.55)`; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.06 + r()*.08), S*(.05 + r()*.06), r()*3, 0, Math.PI*2); g.fill(); }
   } else if (kind === 'fels'){
     for (let i = 0; i < W*H*5; i++){ const v = r(); g.fillStyle = `rgba(${v < .5 ? '0,0,0' : '255,255,255'},${.04 + r()*.07})`; g.beginPath(); g.moveTo(r()*w, r()*h); g.lineTo(r()*w, r()*h); g.lineTo(r()*w, r()*h); g.closePath(); g.fill(); }
     g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
@@ -1993,6 +2138,83 @@ function drawRTW(g, cx, cy, s, dir, t){
   g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(-u*.2, -u*.36, u*.2, 0, Math.PI*2); g.fill();
   g.restore();
 }
+function drawRingBuoy(g, cx, cy, r){
+  g.save(); g.translate(cx, cy);
+  g.lineWidth = r*.42;
+  for (let k = 0; k < 8; k++){ g.strokeStyle = k % 2 ? '#f4f6fa' : '#e3262f'; g.beginPath(); g.arc(0, 0, r*.7, k*Math.PI/4, (k + 1)*Math.PI/4); g.stroke(); }
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = Math.max(1, r*.06);
+  g.beginPath(); g.arc(0, 0, r*.92, 0, Math.PI*2); g.stroke(); g.beginPath(); g.arc(0, 0, r*.48, 0, Math.PI*2); g.stroke();
+  g.restore();
+}
+function drawPaw(g, cx, cy, r){
+  g.save(); g.translate(cx, cy); g.fillStyle = '#c99a5b';
+  g.beginPath(); g.ellipse(0, r*.25, r*.42, r*.36, 0, 0, Math.PI*2); g.fill();
+  for (const [x, y] of [[-.42, -.18], [-.16, -.44], [.16, -.44], [.42, -.18]]){ g.beginPath(); g.ellipse(x*r, y*r, r*.16, r*.2, 0, 0, Math.PI*2); g.fill(); }
+  g.restore();
+}
+/* Wasserwacht rescue boat, seen from above */
+function drawBoat(g, cx, cy, s, dir, t){
+  g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
+  const u = s;
+  g.fillStyle = '#e8562a'; g.beginPath(); g.moveTo(u*.46, 0); g.quadraticCurveTo(u*.3, -u*.3, -u*.4, -u*.27); g.lineTo(-u*.44, u*.27); g.quadraticCurveTo(u*.3, u*.3, u*.46, 0); g.closePath(); g.fill();
+  g.fillStyle = '#f4f6fa'; g.beginPath(); g.moveTo(u*.36, 0); g.quadraticCurveTo(u*.22, -u*.2, -u*.32, -u*.18); g.lineTo(-u*.34, u*.18); g.quadraticCurveTo(u*.22, u*.2, u*.36, 0); g.closePath(); g.fill();
+  g.fillStyle = '#2a2f38'; rr(g, -u*.1, -u*.12, u*.2, u*.24, u*.04); g.fill();
+  g.fillStyle = 'rgba(160,205,255,.9)'; g.fillRect(u*.06, -u*.1, u*.05, u*.2);
+  g.fillStyle = '#3b4252'; g.fillRect(-u*.5, -u*.08, u*.08, u*.16);
+  drawRingBuoy(g, -u*.24, 0, u*.11);
+  const a = Math.sin(t*16) > 0;
+  g.fillStyle = a ? '#3d8bff' : '#16346b'; g.fillRect(-u*.06, -u*.05, u*.08, u*.1);
+  g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(-u*.02, 0, u*.18, 0, Math.PI*2); g.fill();
+  g.restore();
+}
+function drawSwimmer(sw){
+  const q = pos(sw), w = Math.sin(tNow*6 + sw.id), pk = (Math.sin(tNow*5 + sw.id) + 1)/2;
+  ctx.fillStyle = `rgba(255,138,31,${.16 + .2*pk})`; ctx.beginPath(); ctx.arc((q.x + .5)*S, (q.y + .5)*S, S*.62, 0, Math.PI*2); ctx.fill();
+  ctx.save(); ctx.translate((q.x + .5)*S, (q.y + .5)*S); ctx.scale(1.3, 1.3);
+  const cx = 0, cy = 0;
+  ctx.strokeStyle = 'rgba(220,240,255,.6)'; ctx.lineWidth = Math.max(1, S*.05);
+  ctx.beginPath(); ctx.ellipse(cx, cy + S*.08, S*(.3 + .05*w), S*.12, 0, 0, Math.PI*2); ctx.stroke();
+  if (sw.state === 'held') drawRingBuoy(ctx, cx, cy + S*.06, S*.36);
+  ctx.strokeStyle = '#f2d2b0'; ctx.lineWidth = Math.max(1.2, S*.08); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - S*.1, cy); ctx.lineTo(cx - S*.24, cy - S*(.22 + .1*w)); ctx.moveTo(cx + S*.1, cy); ctx.lineTo(cx + S*.24, cy - S*(.22 - .1*w)); ctx.stroke();
+  ctx.fillStyle = '#ff8a1f'; ctx.fillRect(cx - S*.11, cy - S*.02, S*.22, S*.1);
+  ctx.fillStyle = '#f2d2b0'; ctx.beginPath(); ctx.arc(cx, cy - S*.12, S*.11, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawWasser(){
+  // current: light streaks moving along the flow
+  ctx.strokeStyle = 'rgba(190,225,255,.22)'; ctx.lineWidth = Math.max(1, S*.05); ctx.lineCap = 'round';
+  FLOW.forEach((f, k) => {
+    const x = k % W, y = (k / W) | 0;
+    if (isSteg(x, y)) return;
+    for (let j = 0; j < 2; j++){
+      const ph = ((tNow*.9 + hash(x + j*7, y)) % 1), off = (hash(y, x + j) - .5)*.5;
+      const cx = (x + .5 + DX[f]*(ph - .5) + (DX[f] ? 0 : off))*S, cy = (y + .5 + DY[f]*(ph - .5) + (DY[f] ? 0 : off))*S;
+      ctx.beginPath(); ctx.moveTo(cx - DX[f]*S*.14, cy - DY[f]*S*.14); ctx.lineTo(cx + DX[f]*S*.14, cy + DY[f]*S*.14); ctx.stroke();
+    }
+  });
+  // the weir
+  WEHR.forEach(w => {
+    const x = w.x*S, y = w.y*S;
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, y + S*.55, S, S*.45);
+    ctx.fillStyle = '#8b9099'; ctx.fillRect(x, y + S*.82, S, S*.18);
+    for (let k = 0; k < 4; k++){ ctx.fillStyle = `rgba(255,255,255,${.5 + .4*Math.sin(tNow*9 + k + w.x)})`; ctx.beginPath(); ctx.arc(x + S*(.15 + k*.23), y + S*.8, S*.09, 0, Math.PI*2); ctx.fill(); }
+  });
+  ctx.font = `700 ${Math.round(S*.5)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ff6b6b'; ctx.fillText('WEHR', 8.5*S, 20.5*S);
+  // jetties
+  const carrying = rescue.load.length > 0, pk = (Math.sin(tNow*(carrying ? 7 : 3)) + 1)/2;
+  STEGE.forEach(st => {
+    const x = st.x*S, y = st.y*S;
+    if (carrying){ ctx.fillStyle = `rgba(159,240,166,${.15 + .22*pk})`; ctx.beginPath(); ctx.arc(x + S/2, y + S/2, S*.9, 0, Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = '#7a5532'; ctx.fillRect(x + S*.08, y + S*.6, S*.84, S*.3);
+    ctx.strokeStyle = '#4c3214'; ctx.lineWidth = Math.max(1, S*.04);
+    ctx.beginPath(); for (let k = 1; k < 4; k++){ ctx.moveTo(x + S*.08 + k*S*.21, y + S*.6); ctx.lineTo(x + S*.08 + k*S*.21, y + S*.9); } ctx.stroke();
+    ctx.fillStyle = '#5c3e22'; ctx.fillRect(x + S*.1, y + S*.5, S*.08, S*.45); ctx.fillRect(x + S*.82, y + S*.5, S*.08, S*.45);
+    ctx.fillStyle = '#ffffff'; ctx.font = `700 ${Math.round(S*.32)}px ${getFont()}`; ctx.fillText('STEG', x + S/2, y + S*.3);
+  });
+  rescue.persons.forEach(sw => { if (sw.state === 'drift' || sw.state === 'held') drawSwimmer(sw); });
+}
 function drawEdelweiss(g, cx, cy, r){
   g.save(); g.translate(cx, cy);
   g.fillStyle = '#f4f6f8';
@@ -2260,6 +2482,7 @@ function drawSammel(){
 }
 function drawRescue(){
   if (rescue.kind === 'berg'){ drawBerg(); return; }
+  if (rescue.kind === 'wasser'){ drawWasser(); return; }
   rescue.haz.forEach(k => drawHazTile(k % W, (k / W) | 0));
   rescue.src.forEach(k => { const x = k % W, y = (k / W) | 0, p = (Math.sin(tNow*6 + k) + 1)/2; ctx.strokeStyle = role === 'fw' ? `rgba(255,210,63,${.5 + .5*p})` : `rgba(160,220,255,${.5 + .5*p})`; ctx.lineWidth = Math.max(1.5, S*.1); ctx.strokeRect(x*S + 1.5, y*S + 1.5, S - 3, S - 3); });
   if (state === 'play' || state === 'ready' || state === 'paused'){ drawSammel(); drawVers(); }
@@ -2415,7 +2638,11 @@ function drawLighting(){
   ghosts.forEach(gh => { if (gh.mode === 'off' || gh.mode === 'away') return; const q = pos(gh); lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.5, .7); });
   // what matters stays bright: power-ups, people, supply / clinic, depots and gaps
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 'o') lightHole(g, (x + .5)*S, (y + .5)*S, S*.9, .8);
-  if (rescue){
+  if (rescue && rescue.kind === 'wasser'){
+    rescue.persons.forEach(q => { if (q.state === 'drift' || q.state === 'held'){ const o = pos(q); lightHole(g, (o.x + .5)*S, (o.y + .5)*S, S*1.2, .85); } });
+    STEGE.forEach(st => lightHole(g, (st.x + .5)*S, (st.y + .5)*S, S*1.3, .85));
+    lightHole(g, 8.5*S, 19.6*S, S*2, .8);
+  } else if (rescue){
     rescue.persons.forEach(q => { if (q.state === 'wait') lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.1, .85); });
     rescue.units.forEach(u => { const q = pos(u); lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.4, .8); });
     lightHole(g, (SAMMEL.x + .5)*S, (SAMMEL.y + .5)*S, S*1.5, .9);
@@ -2660,7 +2887,7 @@ function drawVehicle(g, cx, cy, s, dir, anim, t, vid){
     default: return drawLoader(g, cx, cy, s, dir, anim, t);
   }
 }
-function drawPlayer(g, cx, cy, s, dir, anim, t){ if (rescue && rescue.kind === 'berg') drawQuad(g, cx, cy, s*.95, dir, t); else if (rescue) drawRTW(g, cx, cy, s*.95, dir, t); else drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
+function drawPlayer(g, cx, cy, s, dir, anim, t){ if (rescue && rescue.kind === 'wasser') drawBoat(g, cx, cy, s, dir, t); else if (rescue && rescue.kind === 'berg') drawQuad(g, cx, cy, s*.95, dir, t); else if (rescue) drawRTW(g, cx, cy, s*.95, dir, t); else drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
 function drawStar(g, cx, cy, r, color){
   g.fillStyle = color; g.beginPath();
   for (let k = 0; k < 10; k++){ const a = -Math.PI/2 + k*Math.PI/5, rr2 = k % 2 ? r*.45 : r; g.lineTo(cx + Math.cos(a)*rr2, cy + Math.sin(a)*rr2); }
@@ -2684,6 +2911,7 @@ const BADGE_ICON = {
   },
   sieg: (g, c, s) => drawStar(g, c, c, s*.38, COL.beacon),
   versorger: (g, c, s) => { g.fillStyle = 'rgba(255,182,39,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawCrate(g, c, c + s*.04, s*.95); },
+  schwimmer: (g, c, s) => { g.fillStyle = 'rgba(80,160,255,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawRingBuoy(g, c, c, s*.3); },
   lawinenhund: (g, c, s) => { g.fillStyle = 'rgba(120,170,255,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawEdelweiss(g, c, c, s*.34); },
   retter: (g, c, s) => { g.fillStyle = 'rgba(60,200,120,.35)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawPerson(g, c, c + s*.08, s*.8, 0, false); },
   leit: (g, c, s) => {
@@ -2736,7 +2964,11 @@ function render(){
   for (let y=0;y<H;y++) for (let x=0;x<W;x++){
     const c = grid[y][x];
     if (c === '.') drawPellet(ctx, (x+.5)*S, (y+.5)*S, S, hash(x,y));
-    else if (c === 'o') drawPower(ctx, (x+.5)*S, (y+.5)*S, S, pulse);
+    else if (c === 'o'){
+      if (rescue && rescue.kind === 'wasser') drawRingBuoy(ctx, (x+.5)*S, (y+.5)*S, S*.36*pulse);
+      else if (rescue && rescue.kind === 'berg') drawPaw(ctx, (x+.5)*S, (y+.5)*S, S*.36*pulse);
+      else drawPower(ctx, (x+.5)*S, (y+.5)*S, S, pulse);
+    }
   }
   drawWater();
   if (kat) drawKatField();
@@ -2756,7 +2988,7 @@ function render(){
     rescue.snowT = (rescue.snowT || 0) - renderDt;
     if (rescue.snowT <= 0){ rescue.snowT = .14; emit(1, Math.random()*W, -.3, {vx:-.35, vy:1.3, size:.05, life:5, kind:'dot', layer:1, color:['#ffffff','#dfe9f5'], alpha:.85}); }
   }
-  if (fxActive() && rescue && rescue.kind !== 'berg' && state === 'play'){
+  if (fxActive() && rescue && rescue.kind === 'rd' && state === 'play'){
     // smoke over the fire, spray over the water
     rescue.ambT = (rescue.ambT || 0) - renderDt;
     if (rescue.ambT <= 0 && rescue.haz.size){
@@ -2806,12 +3038,14 @@ function render(){
     }
   } else if (state !== 'over') {
     const pd = viewDir(player, player.face), pb = rolled(player, p.x, p.y);
-    if (state === 'play') dustFor(player, p, player.face, rescue ? ['rgba(200,210,225,.45)','rgba(160,170,190,.4)'] : null);
+    if (state === 'play') dustFor(player, p, player.face, rescue && rescue.kind === 'wasser' ? ['rgba(235,245,255,.6)','rgba(190,225,255,.5)'] : rescue ? ['rgba(200,210,225,.45)','rgba(160,170,190,.4)'] : null);
     drawEntityWrapped((x, y) => drawShadow((x+.5)*S, (y+.5)*S, S*1.3), p.x, p.y);
     drawEntityWrapped((x, y) => drawPlayer(ctx, (x+.5)*S, (y+.5+pb)*S, S*1.3, pd, player.anim, tNow), p.x, p.y);
     if (player.carry) drawSandbag(ctx, (p.x+.5)*S, (p.y-.2)*S, S*.95, 1 + Math.sin(tNow*10)*.05);
     if (player.binder) drawBinder(ctx, (p.x+.5)*S, (p.y-.25)*S, S*.8);
     if (player.person != null) drawPerson(ctx, (p.x+.5)*S, (p.y-.15)*S, S*.85, tNow, false);
+    if (rescue && rescue.kind === 'wasser') rescue.load.forEach((id, i) => drawPerson(ctx, (p.x + .5 + (i - (rescue.load.length - 1)/2)*.32)*S, (p.y - .1)*S, S*.62, tNow, false));
+    if (rescue && rescue.kind === 'wasser' && rescue.ring > 0) drawRingBuoy(ctx, (p.x + .95)*S, (p.y - .35)*S, S*.2);
     if (player.crate) drawCrate(ctx, (p.x+.5)*S, (p.y-.2)*S, S*.95);
   }
   ctx.restore();
@@ -2819,7 +3053,13 @@ function render(){
   drawParts(1);
   if (ev && ev.type === 'dark' && state !== 'over') drawDark();
   if (rescue && rescue.kind === 'berg' && state !== 'over'){ drawFog(); drawHeli(); drawBergOverlay(); }
-  if (rescue && rescue.kind === 'berg' && state === 'play'){
+  if (rescue && rescue.kind === 'wasser' && state === 'play'){
+    ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${rescue.n}`, S*.4, (H - .5)*S);
+    ctx.textAlign = 'right'; ctx.fillStyle = rescue.load.length >= BOAT_CAP ? COL.beacon : COL.ink;
+    ctx.fillText(`Boot ${rescue.load.length}/${BOAT_CAP}${rescue.ring ? ' · Ring' : ''}`, (W - .4)*S, (H - .5)*S);
+    ctx.textAlign = 'left'; ctx.fillStyle = rescue.lost ? '#ff6b6b' : COL.muted; ctx.fillText(`Wehr ${rescue.lost}`, S*.4, S*.5);
+  } else if (rescue && rescue.kind === 'berg' && state === 'play'){
     ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${rescue.n}`, S*.4, (H - .5)*S);
     ctx.textAlign = 'right'; ctx.fillStyle = rescue.timeLeft < 20 ? '#ff6b6b' : rescue.timeLeft < 45 ? COL.beacon : COL.ink;
@@ -2852,8 +3092,10 @@ function render(){
   if (state === 'play' && alarmT > 0) banner(R().alarm, role === 'fw' ? '#7fb3ff' : '#ff6b6b', null, 1.8 - alarmT);
   if (state === 'play' && ev && ev.introT > 0) banner(EVENTS[ev.type].title, COL.beacon, EVENTS[ev.type].sub, 2.4 - ev.introT);
   if (state === 'play' && rescue && rescue.kind === 'berg' && rescue.msg && !(rescue.introT > 0)) banner(rescue.msg.text, '#9ff0a6', rescue.msg.sub, (rescue.msg.text === 'Gefunden!' ? 1.4 : 1.2) - rescue.msg.t);
-  if (state === 'play' && rescue && rescue.kind === 'berg' && rescue.introT > 0) banner('Bergwacht!', '#ffb3b3', 'Dem Piepen folgen, ausgraben, zum Hubschrauber', 2.8 - rescue.introT);
-  else if (state === 'play' && rescue && rescue.introT > 0) banner('Rettungsdienst!', '#9ff0a6', `Personen in die Klinik, Kisten von VS zu den ${role === 'fw' ? 'Löschzügen' : 'THW-Einheiten'}`, 2.8 - rescue.introT);
+  if (state === 'play' && rescue && rescue.kind === 'wasser' && rescue.msg && !(rescue.introT > 0)) banner(rescue.msg.text, '#9ff0a6', rescue.msg.sub, 1.1 - rescue.msg.t);
+  if (state === 'play' && rescue && rescue.kind === 'wasser' && rescue.introT > 0) banner('Wasserwacht!', '#8fd3ff', 'Schwimmer abfangen, bevor sie das Wehr erreichen', 2.8 - rescue.introT);
+  else if (state === 'play' && rescue && rescue.kind === 'berg' && rescue.introT > 0) banner('Bergwacht!', '#ffb3b3', 'Dem Piepen folgen, ausgraben, zum Hubschrauber', 2.8 - rescue.introT);
+  else if (state === 'play' && rescue && rescue.kind === 'rd' && rescue.introT > 0) banner('Rettungsdienst!', '#9ff0a6', `Personen in die Klinik, Kisten von VS zu den ${role === 'fw' ? 'Löschzügen' : 'THW-Einheiten'}`, 2.8 - rescue.introT);
   if (state === 'play' && kat && kat.introT > 0) banner('Katastrophenfall!', '#ff6b6b', 'Sandsäcke holen, Deich schließen', 2.6 - kat.introT);
   if (state === 'play' && !kat && katMsg) banner(katMsg.text, katMsg.color, katMsg.sub, 2.6 - katMsg.t);
   if (state === 'clear' && stateT < (rescue ? 4.2 : 1.8)){
@@ -3151,7 +3393,7 @@ function showBonusPick(){
     <div class="btns">
       <button class="cta" data-bk="rd">Rettungsdienst</button>
       <button class="cta" data-bk="berg">Bergwacht</button>
-      <button class="cta ghost" disabled style="opacity:.45">Wasserwacht (folgt)</button>
+      <button class="cta" data-bk="wasser">Wasserwacht</button>
       <button class="cta ghost" id="back">Zurück</button>
     </div>`;
   overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
@@ -3168,6 +3410,7 @@ function showRules(){
       <li>Nach Einsatz 2 kommt ein Bonuslevel, das von Spiel zu Spiel wechselt. Niemand jagt dich, und ein Leben kostet es nie.</li>
       <li>Rettungsdienst: In der Altstadt wütet ein Großbrand oder ein Hochwasser. Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten für die drei Einheiten, sonst geht ihnen die Kraft aus. Ab 5 Geretteten gibt es ein Extraleben, bei 40 % Gefahr ist Schluss.</li>
       <li>Bergwacht: Im Nebel liegen 6 Verschüttete. Das Suchgerät (LVS) piept schneller, je näher du kommst. Drüberfahren gräbt aus, dann ab zum Hubschrauber (H). Lawinen sperren kurz einen Streifen, wer darin liegt, hat nur noch begrenzt Zeit. Du hast 60 Sekunden. Der Lawinenhund in den Ecken zeigt 10 Sekunden lang die Richtung. Ab 4 Geretteten gibt es ein Extraleben.</li>
+      <li>Wasserwacht: Hochwasser, alle Straßen sind Flüsse und fließen zum Wehr. Flussabwärts ist dein Boot schnell, flussaufwärts langsam, und wer stehen bleibt, treibt ab. 8 Schwimmer treiben nacheinander herunter: einsammeln (2 passen ins Boot) und an einem Steg abgeben. Rettungsringe in den Ecken halten einen Schwimmer 9 Sekunden fest. Ab 5 Geretteten gibt es ein Extraleben.</li>
       <li>Das Tempo zählt bei allen Punkten mit: Gemütlich ×0,5, Normal ×1, Zügig ×1,5, Rasant ×2. Die Punktwerte oben gelten für Normal.</li>
       <li>Jeder geschaffte Einsatz bringt ein Extraleben.</li>
       <li>Erwischte Verfolger bleiben 6 Sekunden auf der Wache.</li>
