@@ -646,7 +646,7 @@ const EVENTS = {
 let evPlan = {}, evAt = -1, ev = null;
 /* ---------- Rescue mission: bring 8 people to the assembly point while fire / rubble spreads ---------- */
 const RESCUE_N = 8, RESCUE_OK = 5, DANGER_T = 15, SAMMEL = {x:8, y:15}, VERS = {x:8, y:1};
-const KRAFT_TIME = 14, WORK_T = 2, UNIT_V = 3.6, SPREAD_N = 1, HAZ_LIMIT = .4;
+const KRAFT_TIME = 10, WORK_T = 2, UNIT_V = 3.6, SPREAD_N = 1, HAZ_LIMIT = .4;
 let rescue = null;   // {persons:[{x,y,state:'wait'|'carried'|'saved'|'lost', dangerT}], haz:Set, spreadT, interval, saved, lost, failed, introT}
 const key = (x, y) => y*W + x;
 function bfsFrom(x0, y0, extraBlock, block2){
