@@ -1,7 +1,7 @@
 // Blaulicht-Jagd service worker
 // The page itself is loaded network-first, so a new index.html shows up on the next start when online.
 // Everything else comes from the cache. After replacing splash.jpg or an icon, raise VERSION by one.
-const VERSION = 8;
+const VERSION = 14;
 const CACHE = 'blaulicht-jagd-v' + VERSION;
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'splash.jpg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 

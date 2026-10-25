@@ -209,11 +209,11 @@ body{height:100%;background:var(--night);color:var(--ink);font-family:var(--f-ui
     <img class="bg" id="splashBg" alt="">
     <div class="shot" id="shot">
       <img id="splashImg" src="splash.jpg" alt="Blaulicht-Jagd: Startbild mit THW-Radlader und Feuerwehrautos">
-      <button class="hot" id="hotStart" style="left:21.3%;top:73.6%;width:56.9%;height:10.5%" aria-label="Start"></button>
-      <button class="hot mode" id="hotThw" data-r="thw" style="left:3.7%;top:84.3%;width:37.7%;height:6.7%" aria-label="Modus 1: THW sammelt, Feuerwehr verfolgt"></button>
-      <button class="hot" id="hotSwap" style="left:42.5%;top:84.3%;width:14.9%;height:6.7%" aria-label="Modi umschalten"></button>
-      <button class="hot" id="hotBonus" style="left:3.2%;top:91.6%;width:93%;height:7.2%" aria-label="Bonuslevel Rettungsdienst spielen"></button>
-      <button class="hot mode" id="hotFw" data-r="fw" style="left:58.7%;top:84.3%;width:37.8%;height:6.7%" aria-label="Modus 2: Feuerwehr sammelt, THW verfolgt"></button>
+      <button class="hot" id="hotStart" style="left:21.1%;top:73.6%;width:57%;height:9.9%" aria-label="Start"></button>
+      <button class="hot mode" id="hotThw" data-r="thw" style="left:3.9%;top:84.2%;width:37.5%;height:7%" aria-label="Modus 1: THW sammelt, Feuerwehr verfolgt"></button>
+      <button class="hot" id="hotSwap" style="left:43.6%;top:84.2%;width:13.7%;height:7%" aria-label="Modi umschalten"></button>
+      <button class="hot" id="hotBonus" style="left:3.9%;top:91.8%;width:92.4%;height:6.9%" aria-label="Bonuslevel spielen"></button>
+      <button class="hot mode" id="hotFw" data-r="fw" style="left:58.6%;top:84.2%;width:38%;height:7%" aria-label="Modus 2: Feuerwehr sammelt, THW verfolgt"></button>
     </div>
     <button class="menu" id="splashMenu">Menü</button>
   </div>
@@ -347,6 +347,33 @@ const LEVEL_MAPS = [
     "#...............#",
     "#################"]},
 ];
+/* Bonus level of the Bergwacht: avalanche slope at night, searched with the avalanche transceiver */
+const BERG_MAP = {name:'Lawinenhang', wall:'#39414d', edge:'#b9c8da', floor:'schnee', mat:'fels', rescue:true, kind:'berg', rows:[
+    "#################",
+    "#o.....#.#.....o#",
+    "#.###.#...#.###.#",
+    "#...#.#.#.#.#...#",
+    "###.#...#...#.###",
+    "#...###.#.###...#",
+    "#.#.....#.....#.#",
+    "####.........####",
+    "####.###-###.####",
+    "    .#GGGGG#.    ",
+    "####.#######.####",
+    "####.........####",
+    "#...#.##.##.#...#",
+    "#.#...#...#...#.#",
+    "#.#.#.#.#.#.#.#.#",
+    "#o..#...P...#..o#",
+    "###.#.#####.#.###",
+    "#.....#...#.....#",
+    "#.###...#...###.#",
+    "#.......#.......#",
+    "#################"]};
+/* the bonus slot after Einsatz 2 changes from game to game */
+const BONUS_KINDS = ['rd', 'berg'];   /* the Wasserwacht follows */
+const BONUS_INFO = {rd:{name:'Rettungsdienst', color:'#9ff0a6'}, berg:{name:'Bergwacht', color:'#ffb3b3'}};
+let bonusKind = 'rd';
 let curMap = LEVEL_MAPS[0], MAP = curMap.rows.map(r => r.replace(/~/g, '#')), RIVER = new Set();
 const W = 17, H = 21, TUN_Y = 9;
 const DX = [0,-1,0,1], DY = [-1,0,1,0]; // up, left, down, right
@@ -384,13 +411,13 @@ if (isNaN(parseInt(store.get('radlader-tempo','1'),10))) tempo = 1;
 let role = store.get('radlader-role','thw') === 'fw' ? 'fw' : 'thw';
 const ROLES = {
   thw: {name:'THW', eyebrow:'Nachteinsatz auf der Baustelle', h1:'Radlader-Einsatz',
-    intro:'Vier Einsätze gegen die Feuerwehr und dazwischen ein Bonuslevel als Rettungsdienst. Von Einsatz zu Einsatz wird es härter.',
+    intro:'Vier Einsätze gegen die Feuerwehr und dazwischen ein wechselndes Bonuslevel. Von Einsatz zu Einsatz wird es härter.',
     legend:['Schotter','Sandsack: Feuerwehr flüchtet','Feuerwehr abschleppen','Dieselkanister','B5-Alarm: Feuerwehr 8 s beim Großbrand'],
     alarm:'B5-Alarm!', away:'Großbrand', clear:'Baustelle geräumt', overH:'Abgeschleppt!',
     overP:'Die Feuerwehr war schneller. Noch eine Schicht?',
     winP:'Die Baustelle ist geräumt, die Feuerwehr hat Feierabend. Der Radlader darf in die Halle.', bestKey:'radlader-best2'},
   fw: {name:'Feuerwehr', eyebrow:'Nachteinsatz im Brandgebiet', h1:'Löschzug-Einsatz',
-    intro:'Vier Einsätze gegen das THW und dazwischen ein Bonuslevel als Rettungsdienst. Von Einsatz zu Einsatz wird es härter.',
+    intro:'Vier Einsätze gegen das THW und dazwischen ein wechselndes Bonuslevel. Von Einsatz zu Einsatz wird es härter.',
     legend:['Glutnest','Hydrant: THW flüchtet','THW überholen','Dieselkanister','Hochwasser-Alarm: THW 8 s am Deich'],
     alarm:'Hochwasser!', away:'Deichwache', clear:'Brand gelöscht', overH:'Ausgebremst!',
     overP:'Das THW war schneller. Noch eine Schicht?',
@@ -419,8 +446,9 @@ const BADGES = [
   {id:'schmier', n:{thw:'Schmiermaxe', fw:'Schmiermaxe'}, d:'Einen Verfolger in die Ölspur gelockt'},
   {id:'nacht', n:{thw:'Nachtsicht', fw:'Nachtsicht'}, d:'Einen Stromausfall ohne Lebensverlust überstanden'},
   {id:'sieg', n:{thw:'Gesamtsieg', fw:'Gesamtsieg'}, d:'Alle 4 Einsätze geschafft'},
-  {id:'retter', n:{thw:'Lebensretter', fw:'Lebensretter'}, d:'Im Bonuslevel alle 8 Personen gerettet'},
-  {id:'versorger', n:{thw:'Versorger', fw:'Versorger'}, d:{thw:'Im Bonuslevel geschafft, ohne dass eine THW-Einheit erschöpft war', fw:'Im Bonuslevel geschafft, ohne dass eine Feuerwehr-Einheit erschöpft war'}},
+  {id:'retter', n:{thw:'Lebensretter', fw:'Lebensretter'}, d:'Im Rettungsdienst-Bonus alle 8 Personen gerettet'},
+  {id:'lawinenhund', n:{thw:'Lawinenhund', fw:'Lawinenhund'}, d:'Im Bergwacht-Bonus alle 6 Verschütteten gerettet'},
+  {id:'versorger', n:{thw:'Versorger', fw:'Versorger'}, d:{thw:'Im Rettungsdienst-Bonus geschafft, ohne dass eine THW-Einheit erschöpft war', fw:'Im Rettungsdienst-Bonus geschafft, ohne dass eine Feuerwehr-Einheit erschöpft war'}},
   {id:'leit', n:{thw:'Leitstellen-Liebling', fw:'Leitstellen-Liebling'}, d:'Gesamtsieg auf Tempo „Rasant“'}
 ];
 const bName = b => b.n[role];
@@ -464,6 +492,19 @@ const FUNK = {
     tired:['Löschzug meldet: Kräfte am Ende, brauchen Versorgung!','Atemschutz leer, Trupp erschöpft. Bitte Versorgung!'],
     lose:['Brand außer Kontrolle. Alle Kräfte zurückziehen!']
   },
+  berg: {
+    rescue:['Leitstelle an Bergwacht 1: Lawinenabgang am Hang. Verschüttete orten und zum Hubschrauber!','Bergwacht 1, Lawine gemeldet. Suchgerät auf Suchen, los geht es!'],
+    found:['Person ausgegraben, ansprechbar. Ab zum Hubschrauber!','Gefunden! Akja ist beladen.'],
+    saved:['Hubschrauber fliegt den Patienten aus. Weiter suchen!','Patient an Bord, Hubschrauber startet. Nächste Person!'],
+    heliBack:['Hubschrauber wieder am Landeplatz. Bereit für den nächsten Patienten!'],
+    ava:['Achtung, Nachlawine! Raus aus dem markierten Bereich!','Lawinenwarnung! Hang sofort räumen!'],
+    lost:['Ein Verschütteter wurde nicht rechtzeitig gefunden.'],
+    dog:['Hundestaffel ist da. Der Hund zeigt die Richtung!','Lawinenhund im Einsatz, folge der Nase!'],
+    allSaved:['Alle Verschütteten gerettet. Starke Leistung, Bergwacht!'],
+    rescueOk:['Suche abgeschlossen. Gute Arbeit am Berg.'],
+    rescueFail:['Suche beendet. Zu viele Verschüttete nicht gefunden.'],
+    timeout:['Wetter schlägt um, Suche abgebrochen. Alle runter vom Berg!']
+  },
   both: {
     kat:['Katastrophenalarm. Alle Kräfte zum Deich, Streit später.','Leitstelle: Pegel steigt. THW und Feuerwehr gemeinsam an den Deich!'],
     katWin:['Deich hält. Danke an alle Kräfte. Ab jetzt wieder jeder gegen jeden.','Pegel stabil. Gute Zusammenarbeit, Leute.'],
@@ -487,7 +528,7 @@ const FUNK = {
 const funkLast = {};
 let funkT = 0;
 function funk(key){
-  const list = (FUNK[role][key] || FUNK.both[key]);
+  const list = (rescue && rescue.kind === 'berg' && FUNK.berg[key]) || FUNK[role][key] || FUNK.both[key];
   if (!list) return;
   let i = (Math.random() * list.length) | 0;
   if (list.length > 1 && i === funkLast[key]) i = (i + 1) % list.length;
@@ -626,6 +667,12 @@ const sfx = {
   oil(){ tone(220,.5,'sine',.06,90); tone(160,.6,'sine',.05,70,.2); },
   dark(){ [0,.12,.3,.38].forEach(d=>tone(120,.08,'square',.06,null,d)); tone(300,.8,'sawtooth',.04,40,.45); },
   crash(){ tone(180,.25,'square',.07,60); tone(90,.4,'triangle',.08,40,.05); [0,.4,.8].forEach(d=>tone(880,.15,'square',.03,null,.5+d)); },
+  lvs(close){ tone(close ? 2900 : 2350, .045, 'sine', .04); },
+  ava(){ tone(75, 1.8, 'sawtooth', .05, 38); tone(120, 1.4, 'triangle', .05, 45, .25); [0,.35,.7].forEach(d => tone(980, .14, 'square', .03, null, d)); },
+  avaHit(){ tone(95, 1, 'sawtooth', .07, 30); tone(60, 1.2, 'triangle', .09, 28, .05); },
+  found(){ [660, 880, 1175].forEach((f, i) => tone(f, .12, 'triangle', .07, null, i*.09)); },
+  heli(){ for (let k = 0; k < 8; k++) tone(70 + (k % 2)*12, .07, 'triangle', .06, null, k*.11); },
+  dig(){ [0,.2,.4,.6].forEach(d => tone(280, .08, 'triangle', .05, 150, d)); },
   badge(){ [784,988,1175,1568].forEach((f,i)=>tone(f,.1,'triangle',.06,null,.05+i*.08)); }
 };
 function setMuteIcon(){
@@ -686,7 +733,7 @@ function bfsFrom(x0, y0, extraBlock, block2){
   return seen;
 }
 function setupRescue(){
-  rescue = {persons:[], haz:new Set(), spreadT:3, interval:1.5, saved:0, lost:0, failed:false, introT:2.8, done:false, burned:false, src:new Set(), everTired:false, supplies:0, units:[], openN:0};
+  rescue = {kind:'rd', n:RESCUE_N, ok:RESCUE_OK, persons:[], haz:new Set(), spreadT:3, interval:1.5, saved:0, lost:0, failed:false, introT:2.8, done:false, burned:false, src:new Set(), everTired:false, supplies:0, units:[], openN:0};
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (passM(x, y) && !inHouseZone(x, y)) rescue.openN++;
   rescue.units = [{x:4,y:7},{x:8,y:7},{x:12,y:7}].map((p, i) => ({id:i, tx:p.x, ty:p.y, dir:-1, prog:0, kraft:100, state:'drive', workT:WORK_T, aim:null, target:null}));
   // distance from the start for spreading people out
@@ -754,6 +801,7 @@ function clearHazardAround(x0, y0, r){
   if (n) floats.push({x:x0, y:y0 - 1, text: role === 'fw' ? 'Gelöscht!' : 'Abgepumpt!', t:0});
 }
 function rescueTick(dt){
+  if (rescue.kind === 'berg'){ bergTick(dt); return; }
   if (rescue.introT > 0) rescue.introT -= dt;
   rescue.spreadT -= dt;
   if (rescue.spreadT <= 0){
@@ -764,7 +812,7 @@ function rescueTick(dt){
       rescue.done = true; rescue.burned = true; funk('lose'); sfx.katFail();
       rescue.persons.forEach(p => { if (p.state === 'wait'){ p.state = 'lost'; rescue.lost++; } });
       if (player.person != null){ rescue.persons[player.person].state = 'lost'; rescue.lost++; player.person = null; }
-      if (rescue.saved >= RESCUE_OK){ lives++; renderLives(); }
+      if (rescue.saved >= rescue.ok){ lives++; renderLives(); }
       setState('clear'); return;
     }
   }
@@ -792,9 +840,10 @@ function rescueTick(dt){
 function checkRescueEnd(){
   if (rescue.done || rescue.persons.some(p => p.state === 'wait' || p.state === 'carried')) return;
   rescue.done = true;
-  if (rescue.saved >= RESCUE_OK){
-    if (rescue.saved === RESCUE_N){ addScore(2000); award('retter'); funk('allSaved'); } else funk('rescueOk');
-    if (!rescue.everTired) award('versorger');
+  if (rescue.saved >= rescue.ok){
+    if (rescue.saved === rescue.n){ addScore(2000); award(rescue.kind === 'berg' ? 'lawinenhund' : 'retter'); funk('allSaved'); } else funk('rescueOk');
+    if (rescue.kind === 'rd' && !rescue.everTired) award('versorger');
+    if (rescue.kind === 'berg' && rescue.timeLeft > 1){ const tb = addScore(Math.round(rescue.timeLeft) * 10); floats.push({x:player.tx, y:player.ty - 2.2, text:`Zeitbonus ${tb}`, t:0}); }
     setState('clear'); sfx.clear(); lives++; renderLives();
     floats.push({x:player.tx, y:player.ty - 1.2, text:'+1 Leben', t:0});
   } else {
@@ -852,6 +901,162 @@ function unitArrive(u){
   u.dir = -1;
 }
 
+/* ---------- Bergwacht bonus: find buried people with the transceiver, dig them out, fly them out ---------- */
+const HELI_OUT = 1.8, HELI_AWAY = 5, HELI_BACK = 2.2;   /* the helicopter flies every patient out and has to come back */
+const BERG_N = 6, BERG_OK = 4, BERG_TIME = 60, AVA_WARN = 2.4, AVA_DUR = 6, BURY_T = 22, DIG_T = .9, LVS_RANGE = 8, DOG_T = 10;
+function setupBerg(){
+  rescue = {kind:'berg', n:BERG_N, ok:BERG_OK, persons:[], haz:new Set(), src:new Set(), units:[], saved:0, lost:0, introT:2.8, done:false, burned:false, openN:1,
+    timeLeft: BERG_TIME / TEMPI[tempo].m, avaT: 9 + Math.random()*3, ava:null, hold:0, dig:null, beepT:0, ring:0, dogT:0, snowT:0, heli:{st:'pad', t:0}};
+  const dist = new Map([[key(SAMMEL.x, SAMMEL.y), 0]]), q = [[SAMMEL.x, SAMMEL.y]];
+  for (let i = 0; i < q.length; i++){ const [x, y] = q[i]; for (let d = 0; d < 4; d++){ const nx = wrapX(x + DX[d]), ny = y + DY[d], k = key(nx, ny); if (passM(nx, ny) && !dist.has(k)){ dist.set(k, dist.get(key(x, y)) + 1); q.push([nx, ny]); } } }
+  const cands = [];
+  dist.forEach((d, k) => { const x = k % W, y = (k / W) | 0; if (d >= 5 && !inHouseZone(x, y) && !(y === TUN_Y && (x < 3 || x > 13)) && grid[y][x] !== 'o') cands.push({x, y, d}); });
+  const pick = [cands[(Math.random() * cands.length) | 0]];
+  while (pick.length < BERG_N && pick.length < cands.length){
+    const scored = cands.filter(c => !pick.includes(c)).map(c => ({c, m: Math.min(...pick.map(p => Math.abs(p.x - c.x) + Math.abs(p.y - c.y)))}));
+    scored.sort((a, b) => b.m - a.m);
+    pick.push(scored[(Math.random() * Math.min(4, scored.length)) | 0].c);
+  }
+  rescue.persons = pick.map(c => ({x:c.x, y:c.y, state:'wait', dangerT:0}));
+}
+/* nearest buried person that is not being dug out right now */
+function lvsDist(){
+  const pp = pos(player); let best = {d: Infinity, p: null, dx: 0, dy: 0};
+  rescue.persons.forEach((q, i) => {
+    if (q.state !== 'wait' || rescue.dig === i) return;
+    let dx = q.x - pp.x; if (dx > W/2) dx -= W; if (dx < -W/2) dx += W;
+    const dy = q.y - pp.y, d = Math.hypot(dx, dy);
+    if (d < best.d) best = {d, p:q, dx, dy};
+  });
+  return best;
+}
+function bergTick(dt){
+  const m = TEMPI[tempo].m;
+  if (rescue.introT > 0) rescue.introT -= dt;
+  if (rescue.hold > 0) rescue.hold -= dt;
+  if (rescue.dig != null){
+    const q = rescue.persons[rescue.dig];
+    if (Math.random() < dt * 14) emit(2, q.x + .5, q.y + .4, {speed:1.8, vy:-1, grav:3, size:.06, life:.45, kind:'dot', layer:1, color:['#ffffff','#d6e4f2']});
+    if (rescue.hold <= 0){
+      rescue.dig = null; q.state = 'carried'; q.dangerT = 0; player.person = rescue.persons.indexOf(q);
+      floats.push({x:q.x, y:q.y - .8, text:String(addScore(200)), t:0}); sfx.found(); funk('found');
+      rescue.msg = {text:'Gefunden!', sub:'Patient an Bord · ab zum Hubschrauber (H)', t:1.4};
+      emit(16, q.x + .5, q.y + .5, {speed:3, size:.08, life:.6, kind:'spark', layer:1, color:['#9ff0a6','#ffffff','#ffd23f']});
+    }
+  }
+  if (rescue.dogT > 0) rescue.dogT -= dt;
+  if (rescue.msg){ rescue.msg.t -= dt; if (rescue.msg.t <= 0) rescue.msg = null; }
+  heliTick(dt);
+  if (state !== 'play') return;
+  rescue.timeLeft -= dt;
+  if (rescue.timeLeft <= 0){ rescue.timeLeft = 0; bergTimeout(); return; }
+  // avalanches: warning, then a band of snow blocks the way for a few seconds
+  if (!rescue.ava){ rescue.avaT -= dt; if (rescue.avaT <= 0) startAva(); }
+  else {
+    const a = rescue.ava; a.t += dt;
+    if (!a.hit && a.t >= AVA_WARN) hitAva();
+    if (a.hit && a.t >= AVA_WARN + AVA_DUR){ a.tiles.forEach(k => rescue.haz.delete(k)); rescue.ava = null; rescue.avaT = (11 + Math.random()*5) / m; }
+  }
+  // people buried by an avalanche have only limited time
+  rescue.persons.forEach((q, i) => {
+    if (q.state !== 'wait' || q.dangerT <= 0 || rescue.dig === i) return;
+    q.dangerT -= dt;
+    if (q.dangerT <= 0){ q.dangerT = 0; q.state = 'lost'; rescue.lost++; funk('lost'); sfx.katFail(); checkRescueEnd(); }
+  });
+  if (state !== 'play') return;
+  // transceiver: beeps faster the closer the next buried person is
+  const d = lvsDist();
+  rescue.ring = Math.max(0, rescue.ring - dt * 1.8);
+  if (player.person == null && d.p && (d.d <= LVS_RANGE || rescue.dogT > 0)){
+    rescue.beepT -= dt;
+    if (rescue.beepT <= 0){ rescue.beepT = .13 + Math.min(d.d, LVS_RANGE) * .13; rescue.ring = 1; sfx.lvs(d.d < 1.5); }
+  } else rescue.beepT = 0;
+}
+function heliTick(dt){
+  const h = rescue.heli, m = TEMPI[tempo].m;
+  if (h.st === 'pad') return;
+  h.t += dt * m;
+  if (h.st === 'out' && h.t >= HELI_OUT){ h.st = 'away'; h.t = 0; }
+  else if (h.st === 'away' && h.t >= HELI_AWAY){ h.st = 'back'; h.t = 0; sfx.heli(); }
+  else if (h.st === 'back' && h.t >= HELI_BACK){
+    h.st = 'pad'; h.t = 0;
+    // someone is already waiting on the pad with a patient
+    if (state === 'play' && player.person != null && player.tx === SAMMEL.x && player.ty === SAMMEL.y && player.prog < .3) deliverPatient(player);
+    else if (state === 'play' && player.person != null) funk('heliBack');
+  }
+}
+/* seconds until the helicopter is back on the pad */
+function heliWait(){
+  const h = rescue.heli;
+  if (h.st === 'pad') return 0;
+  const left = h.st === 'out' ? HELI_OUT - h.t + HELI_AWAY + HELI_BACK : h.st === 'away' ? HELI_AWAY - h.t + HELI_BACK : HELI_BACK - h.t;
+  return left / TEMPI[tempo].m;
+}
+function deliverPatient(p){
+  rescue.persons[p.person].state = 'saved'; p.person = null; rescue.saved++;
+  floats.push({x:p.tx, y:p.ty - .8, text:String(addScore(500)), t:0}); sfx.katWin(); funk('saved'); sfx.heli();
+  rescue.heli = {st:'out', t:0};
+  if (rescue.saved < rescue.n) rescue.msg = {text:'Hubschrauber startet!', sub:`${rescue.saved} von ${rescue.n} gerettet · weiter suchen`, t:1.2};
+  checkRescueEnd();
+}
+function startAva(){
+  const waiting = rescue.persons.filter(q => q.state === 'wait');
+  const opts = []; for (let y = 1; y <= H - 4; y++) opts.push(y);
+  const withP = opts.filter(y => waiting.some(q => q.y >= y && q.y <= y + 2));
+  const pool = withP.length && Math.random() < .7 ? withP : opts;
+  const y0 = pool[(Math.random() * pool.length) | 0];
+  rescue.ava = {y0, y1: y0 + 2, t:0, hit:false, tiles:[]};
+  sfx.ava(); funk('ava');
+}
+function hitAva(){
+  const a = rescue.ava; a.hit = true;
+  const pt = ptile(), nx = player.dir >= 0 ? {x: wrapX(player.tx + DX[player.dir]), y: player.ty + DY[player.dir]} : {x:player.tx, y:player.ty};
+  const keep = new Set([key(player.tx, player.ty), key(pt.x, pt.y), key(nx.x, nx.y), key(SAMMEL.x, SAMMEL.y)]);
+  for (let y = a.y0; y <= a.y1; y++) for (let x = 0; x < W; x++){
+    if (!passM(x, y) || inHouseZone(x, y)) continue;
+    const k = key(x, y); if (keep.has(k)) continue;
+    rescue.haz.add(k); a.tiles.push(k);
+    if (Math.random() < .35) emit(2, x + .5, y + .5, {speed:1.2, size:.12, grow:.4, life:.8, kind:'puff', layer:1, color:['rgba(240,246,255,.8)','rgba(210,225,240,.7)'], alpha:.8});
+  }
+  if (pt.y >= a.y0 && pt.y <= a.y1){ rescue.hold = Math.max(rescue.hold, 1.6); floats.push({x:pt.x, y:pt.y - 1, text:'Erwischt!', t:0}); }
+  rescue.persons.forEach(q => { if (q.state === 'wait' && q.y >= a.y0 && q.y <= a.y1 && q.dangerT <= 0) q.dangerT = BURY_T / TEMPI[tempo].m; });
+  if (!reduceMotion) shakeT = .45;
+  sfx.avaHit();
+}
+function bergTimeout(){
+  rescue.done = true; rescue.burned = true; funk('timeout'); sfx.katFail();
+  rescue.persons.forEach(q => { if (q.state === 'wait'){ q.state = 'lost'; rescue.lost++; } });
+  if (player.person != null){ rescue.persons[player.person].state = 'lost'; rescue.lost++; player.person = null; }
+  rescue.dig = null;
+  if (rescue.saved >= rescue.ok){ lives++; renderLives(); }
+  setState('clear');
+}
+/* returns true when the player has to stop here (digging) */
+function bergArrive(p, c){
+  if (c === 'o'){ grid[p.ty][p.tx] = ' '; floats.push({x:p.tx, y:p.ty - .8, text:String(addScore(50)), t:0}); rescue.dogT = DOG_T; funk('dog'); sfx.power(); }
+  if (p.person == null && rescue.dig == null){
+    const i = rescue.persons.findIndex(q => q.state === 'wait' && q.x === p.tx && q.y === p.ty);
+    if (i >= 0){ rescue.dig = i; rescue.hold = DIG_T; p.dir = -1; p.prog = 0; sfx.dig(); return true; }
+  } else if (p.person != null && p.tx === SAMMEL.x && p.ty === SAMMEL.y){
+    if (rescue.heli.st === 'pad') deliverPatient(p);
+    else if (!rescue.padWait){
+      // stop on the pad and wait for the helicopter; a new direction drives off again
+      rescue.padWait = true;
+      floats.push({x:p.tx, y:p.ty - 1.2, text:'Warten auf Hubschrauber', t:0});
+      p.dir = -1; p.prog = 0; p.want = -1;
+      document.querySelectorAll('.pad button').forEach(b => b.classList.remove('on'));
+      return true;
+    }
+  }
+  if (p.tx !== SAMMEL.x || p.ty !== SAMMEL.y) rescue.padWait = false;
+  return false;
+}
+
+function nextBonusKind(){
+  const i = parseInt(store.get('radlader-bonus-i', '0'), 10) || 0;
+  store.set('radlader-bonus-i', String(i + 1));
+  return BONUS_KINDS[i % BONUS_KINDS.length];
+}
 function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function pickPlans(){
   const lv = shuffle([1,2,4,5]);   // internal level 3 is the bonus level
@@ -886,7 +1091,7 @@ function resetGrid(){
   if (isRescue()){
     for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (grid[y][x] === '.') grid[y][x] = ' ';
     pelletsTotal = pelletsLeft = 4; b5Plan = -1; katAt = -1; evAt = -1;
-    setupRescue();
+    if (curMap.kind === 'berg') setupBerg(); else setupRescue();
   }
 }
 function resetPositions(){
@@ -941,7 +1146,8 @@ function reverse(e){
 
 function playerArrive(p){
   const c = grid[p.ty] && grid[p.ty][p.tx];
-  if (rescue && state === 'play'){
+  if (rescue && rescue.kind === 'berg' && state === 'play'){ if (bergArrive(p, c)) return; }
+  else if (rescue && state === 'play'){
     if (c === 'o'){ grid[p.ty][p.tx] = ' '; addScore(50); startFright(); clearHazardAround(p.tx, p.ty, 2); }
     if (p.person == null && !p.crate && p.tx === VERS.x && p.ty === VERS.y){ p.crate = true; sfx.load(); }
     if (p.person == null){
@@ -1024,7 +1230,7 @@ function bfs(targets){
 }
 let DEPOT_DIST = null, GAP_DIST = null;
 function loadMap(lv){
-  curMap = LEVEL_MAPS[Math.min(Math.max(lv, 1), LEVEL_MAPS.length) - 1];
+  curMap = lv === 3 && bonusKind === 'berg' ? BERG_MAP : LEVEL_MAPS[Math.min(Math.max(lv, 1), LEVEL_MAPS.length) - 1];
   MAP = curMap.rows.map(r => r.replace(/~/g, '#'));
   RIVER = new Set();
   curMap.rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === '~') RIVER.add(y*W + x); }));
@@ -1239,7 +1445,7 @@ function setState(s){
   state = s; stateT = 0;
   if (s === 'dying' && !reduceMotion) shakeT = .45;
   if (s === 'won') confetti();
-  if (s === 'clear' && !(rescue && (rescue.burned || rescue.saved < RESCUE_OK))) confetti();
+  if (s === 'clear' && !(rescue && (rescue.burned || rescue.saved < rescue.ok))) confetti();
   if (s === 'ready') saveRun();
   if (s === 'clear'){
     if (rescue) return;
@@ -1251,7 +1457,7 @@ function setState(s){
 const RUN_KEY = 'radlader-run';
 function saveRun(){
   if (practice || !['play','ready','dying','clear','paused'].includes(state) || !grid) return;
-  store.set(RUN_KEY, JSON.stringify({t: Date.now(), role, score, raw: rawScore, lives: state === 'dying' ? lives - 1 : lives, level, eatenCount, bonusSpawned, katPlan, evPlan, flooded, grid: grid.map(r => r.join(''))}));
+  store.set(RUN_KEY, JSON.stringify({t: Date.now(), role, bk: bonusKind, score, raw: rawScore, lives: state === 'dying' ? lives - 1 : lives, level, eatenCount, bonusSpawned, katPlan, evPlan, flooded, grid: grid.map(r => r.join(''))}));
 }
 function loadRun(){
   try {
@@ -1277,7 +1483,8 @@ function update(dt){
     return;
   }
   if (state === 'clear'){
-    if (stateT > 1.8){
+    if (rescue && rescue.kind === 'berg') heliTick(dt);
+    if (stateT > (rescue ? 4.2 : 1.8)){
       if (practice){ practice = false; state = 'title'; quitToMenu(); return; }
       if (level >= MAX_LEVEL){ clearRun(); award('sieg'); if (tempo === 3) award('leit'); setState('won'); sfx.win(); lbShowStatusAfter(showWin, lbSubmit()); }
       else { level++; setLevelText(); levelIntro = true; loadMap(level); resetGrid(); resetPositions(); setState('ready'); }
@@ -1314,7 +1521,7 @@ function update(dt){
   const slipping = ev && ev.type === 'oil' && (onOil(player.tx, player.ty) || (player.dir >= 0 && onOil(wrapX(player.tx + DX[player.dir]), player.ty + DY[player.dir])));
   if (!slipping && player.dir >= 0 && player.want === opp(player.dir) && player.prog > 0){ reverse(player); player.face = player.dir; }
   const pBefore = pos(player);
-  move(player, sp.p * (inFlood(pBefore.y) ? .55 : 1) * (player.person != null ? .9 : 1) * dt, playerArrive);
+  if (!(rescue && rescue.hold > 0)) move(player, sp.p * (inFlood(pBefore.y) ? .55 : 1) * (player.person != null ? .9 : 1) * dt, playerArrive);
   if (state !== 'play') return;
   const pAfter = pos(player);
   if (pAfter.x !== pBefore.x || pAfter.y !== pBefore.y) player.anim += dt * 14;
@@ -1407,7 +1614,7 @@ const isWallD = (x, y) => isWall(x, y) && !(y >= 0 && y < H && x >= 0 && x < W &
 function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function paintFloor(g, kind){
   const w = W*S, h = H*S, r = rng(kind.length * 977 + 13);
-  const base = {kies:'#15140f', beton:'#121419', pflaster:'#14121b', asphalt:'#101215', industrie:'#141412'}[kind] || COL.night;
+  const base = {kies:'#15140f', beton:'#121419', pflaster:'#14121b', asphalt:'#101215', industrie:'#141412', schnee:'#1d2532'}[kind] || COL.night;
   g.fillStyle = base; g.fillRect(0, 0, w, h);
   if (kind === 'kies'){
     for (let i = 0; i < W*H*7; i++){ g.fillStyle = ['#1d1b15','#221f18','#1a1813','#24211a'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, .5 + r()*S*.07, 0, Math.PI*2); g.fill(); }
@@ -1424,6 +1631,9 @@ function paintFloor(g, kind){
     }
   } else if (kind === 'asphalt'){
     for (let i = 0; i < W*H*10; i++){ g.fillStyle = `rgba(${150 + r()*60},${150 + r()*60},${160 + r()*60},${.03 + r()*.04})`; g.fillRect(r()*w, r()*h, 1, 1); }
+  } else if (kind === 'schnee'){
+    for (let i = 0; i < W*H*3; i++){ g.fillStyle = `rgba(225,235,250,${.03 + r()*.06})`; g.beginPath(); g.ellipse(r()*w, r()*h, S*(.1 + r()*.3), S*(.05 + r()*.12), r()*3, 0, Math.PI*2); g.fill(); }
+    for (let i = 0; i < W*H*6; i++){ g.fillStyle = `rgba(255,255,255,${.05 + r()*.12})`; g.fillRect(r()*w, r()*h, 1, 1); }
   } else if (kind === 'industrie'){
     g.strokeStyle = 'rgba(255,255,255,.03)'; g.lineWidth = 1;
     for (let x = 0; x <= W; x += 2){ g.beginPath(); g.moveTo(x*S + .5, 0); g.lineTo(x*S + .5, h); g.stroke(); }
@@ -1450,6 +1660,10 @@ function paintMaterial(g, kind, fill){
     for (let i = 0; i < W*H*4; i++){ g.fillStyle = `rgba(0,0,0,${r()*.08})`; g.fillRect(r()*w, r()*h, 2, 2); }
   } else if (kind === 'hecke'){
     for (let i = 0; i < W*H*9; i++){ g.fillStyle = ['#2a5530','#24492a','#336b3a','#1d3d22'][(r()*4)|0]; g.beginPath(); g.arc(r()*w, r()*h, S*(.06 + r()*.1), 0, Math.PI*2); g.fill(); }
+  } else if (kind === 'fels'){
+    for (let i = 0; i < W*H*5; i++){ const v = r(); g.fillStyle = `rgba(${v < .5 ? '0,0,0' : '255,255,255'},${.04 + r()*.07})`; g.beginPath(); g.moveTo(r()*w, r()*h); g.lineTo(r()*w, r()*h); g.lineTo(r()*w, r()*h); g.closePath(); g.fill(); }
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
+    for (let i = 0; i < W*H*.8; i++){ const x = r()*w, y = r()*h; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - .5)*S*.6, y + r()*S*.5); g.lineTo(x + (r() - .5)*S*.6, y + r()*S*.9); g.stroke(); }
   } else if (kind === 'wellblech'){
     const st = Math.max(3, S*.16);
     for (let x = 0; x < w; x += st){ g.fillStyle = (x / st) % 2 < 1 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.14)'; g.fillRect(x, 0, st/2, h); }
@@ -1527,6 +1741,12 @@ function buildWalls(fill, edge, theme){
         const lg = gg.createLinearGradient(0, y*S, 0, y*S + S*.6);
         lg.addColorStop(0, 'rgba(255,255,255,.16)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
         gg.fillStyle = lg; gg.fillRect(x*S, y*S, S, S*.6);
+        if (theme.mat === 'fels'){
+          // snow caps on the rocks
+          gg.fillStyle = 'rgba(236,243,252,.9)'; gg.beginPath(); gg.moveTo(x*S, y*S);
+          for (let k = 0; k <= 4; k++) gg.lineTo(x*S + k*S/4, y*S + S*(.2 + .1*hash(x*5 + k, y)));
+          gg.lineTo(x*S + S, y*S); gg.closePath(); gg.fill();
+        }
       }
     }
   });
@@ -1773,6 +1993,211 @@ function drawRTW(g, cx, cy, s, dir, t){
   g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(-u*.2, -u*.36, u*.2, 0, Math.PI*2); g.fill();
   g.restore();
 }
+function drawEdelweiss(g, cx, cy, r){
+  g.save(); g.translate(cx, cy);
+  g.fillStyle = '#f4f6f8';
+  for (let k = 0; k < 8; k++){ g.save(); g.rotate(k*Math.PI/4); g.beginPath(); g.ellipse(0, -r*.55, r*.19, r*.45, 0, 0, Math.PI*2); g.fill(); g.restore(); }
+  g.fillStyle = '#e3cd5c';
+  for (let k = 0; k < 5; k++){ const a = k*Math.PI*2/5; g.beginPath(); g.arc(Math.cos(a)*r*.15, Math.sin(a)*r*.15, r*.12, 0, Math.PI*2); g.fill(); }
+  g.restore();
+}
+/* Bergwacht quad with the orange rescue sled (Akja) behind */
+function drawQuad(g, cx, cy, s, dir, t){
+  g.save(); g.translate(cx, cy); orient(g, dir < 0 ? 3 : dir);
+  const u = s;
+  g.strokeStyle = '#6b7280'; g.lineWidth = Math.max(1, u*.035); g.beginPath(); g.moveTo(-u*.24, u*.04); g.lineTo(-u*.1, u*.04); g.stroke();
+  g.fillStyle = '#ff7a1a'; rr(g, -u*.56, -u*.12, u*.32, u*.3, u*.13); g.fill();
+  g.fillStyle = '#c4570c'; g.fillRect(-u*.52, u*.01, u*.24, u*.05);
+  wheel(g, -u*.04, u*.19, u*.12, s); wheel(g, u*.3, u*.19, u*.12, s);
+  g.fillStyle = '#d42a2f'; rr(g, -u*.14, -u*.14, u*.54, u*.27, u*.09); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(-u*.1, -u*.12, u*.46, u*.05);
+  g.fillStyle = '#1d2027'; rr(g, -u*.08, -u*.23, u*.24, u*.1, u*.04); g.fill();
+  g.strokeStyle = '#2a2f38'; g.lineWidth = Math.max(1.2, u*.05); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(u*.24, -u*.13); g.lineTo(u*.3, -u*.29); g.moveTo(u*.22, -u*.3); g.lineTo(u*.38, -u*.28); g.stroke();
+  g.fillStyle = '#fff3c4'; g.fillRect(u*.38, -u*.08, u*.05, u*.09);
+  drawEdelweiss(g, u*.12, -u*.01, u*.085);
+  const a = Math.sin(t*16) > 0;
+  g.fillStyle = a ? '#3d8bff' : '#16346b'; g.fillRect(u*.02, -u*.35, u*.09, u*.07);
+  g.fillStyle = 'rgba(61,139,255,.25)'; g.beginPath(); g.arc(u*.065, -u*.32, u*.16, 0, Math.PI*2); g.fill();
+  g.restore();
+}
+function drawSnowTile(x, y){
+  const h = hash(x, y);
+  ctx.fillStyle = '#d9e3ee'; ctx.fillRect(x*S, y*S, S, S);
+  ctx.fillStyle = '#f6faff';
+  for (let k = 0; k < 3; k++){ ctx.beginPath(); ctx.arc(x*S + S*(.25 + .25*k), y*S + S*(.35 + .2*hash(k, x + y)), S*(.22 + .08*h), 0, Math.PI*2); ctx.fill(); }
+  ctx.fillStyle = 'rgba(110,135,170,.35)'; ctx.fillRect(x*S, y*S + S*.82, S, S*.18);
+}
+/* landing pad at the start with the rescue helicopter hovering above */
+function drawPad(){
+  const carrying = player.person != null, cx = (SAMMEL.x + .5)*S, cy = (SAMMEL.y + .5)*S, p = (Math.sin(tNow*(carrying ? 7 : 3)) + 1)/2;
+  ctx.fillStyle = carrying ? `rgba(159,240,166,${.22 + .25*p})` : `rgba(255,214,107,${.12 + .14*p})`; ctx.beginPath(); ctx.arc(cx, cy, S*(carrying ? 1.2 : .95), 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#2b3a33'; ctx.beginPath(); ctx.arc(cx, cy, S*.6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = Math.max(1, S*.06); ctx.beginPath(); ctx.arc(cx, cy, S*.48, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#f2f2f2'; ctx.font = `700 ${Math.round(S*.58)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', cx, cy + S*.03);
+  for (let k = 0; k < 4; k++){ const a = k*Math.PI/2 + Math.PI/4; ctx.fillStyle = Math.floor(tNow*2 + k) % 2 ? '#ffd66b' : '#7a5a14'; ctx.beginPath(); ctx.arc(cx + Math.cos(a)*S*.62, cy + Math.sin(a)*S*.62, S*.06, 0, Math.PI*2); ctx.fill(); }
+}
+function heliPos(){
+  const h = rescue.heli, px = (SAMMEL.x + .6)*S, py = (SAMMEL.y - .55)*S;
+  const ease = t => t*t*(3 - 2*t);
+  if (h.st === 'pad') return {x: px, y: py + Math.sin(tNow*2.2)*S*.06, sc: 1};
+  if (h.st === 'out'){ const k = ease(Math.min(1, h.t / HELI_OUT)); return {x: px + k*S*5, y: py - k*(py + S*2), sc: 1 + k*.5}; }
+  if (h.st === 'back'){ const k = ease(Math.min(1, h.t / HELI_BACK)); return {x: px - (1 - k)*S*6, y: py - (1 - k)*(py + S*2), sc: 1 + (1 - k)*.5}; }
+  return null;
+}
+function drawHeli(){
+  const hp = heliPos(); if (!hp) return;
+  if (rescue.heli.st === 'pad'){ ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse((SAMMEL.x + .5)*S, (SAMMEL.y + .3)*S, S*.5, S*.14, 0, 0, Math.PI*2); ctx.fill(); }
+  ctx.save(); ctx.translate(hp.x, hp.y); ctx.scale(hp.sc, hp.sc);
+  const hx = 0, hy = 0;
+  ctx.fillStyle = '#d42a2f'; ctx.fillRect(hx - S*.85, hy - S*.05, S*.6, S*.08);
+  ctx.fillRect(hx - S*.92, hy - S*.18, S*.08, S*.2);
+  rr(ctx, hx - S*.32, hy - S*.2, S*.62, S*.36, S*.16); ctx.fill();
+  ctx.fillStyle = '#f2f2f2'; ctx.fillRect(hx - S*.3, hy - S*.01, S*.56, S*.06);
+  ctx.fillStyle = 'rgba(160,205,255,.95)'; rr(ctx, hx + S*.06, hy - S*.15, S*.2, S*.13, S*.06); ctx.fill();
+  ctx.strokeStyle = '#3b4252'; ctx.lineWidth = Math.max(1, S*.04); ctx.beginPath(); ctx.moveTo(hx - S*.24, hy + S*.24); ctx.lineTo(hx + S*.26, hy + S*.24); ctx.stroke();
+  const ra = tNow*18;
+  ctx.strokeStyle = 'rgba(40,46,58,.85)'; ctx.lineWidth = Math.max(1, S*.05);
+  ctx.beginPath(); ctx.moveTo(hx - Math.cos(ra)*S*.75, hy - S*.24); ctx.lineTo(hx + Math.cos(ra)*S*.75, hy - S*.24); ctx.stroke();
+  ctx.fillStyle = '#2a2f38'; ctx.fillRect(hx - S*.03, hy - S*.27, S*.06, S*.08);
+  const bl = Math.floor(tNow*3) % 2 === 0; ctx.fillStyle = bl ? '#ff4d4d' : '#ffffff'; ctx.beginPath(); ctx.arc(hx - S*.88, hy - S*.2, S*.05, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  // countdown at the empty pad
+  if (rescue.heli.st !== 'pad' && state === 'play'){
+    const cx = (SAMMEL.x + .5)*S, cy = (SAMMEL.y + .5)*S;
+    ctx.font = `700 ${Math.round(S*.55)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(11,16,25,.85)'; rr(ctx, cx - S*.55, cy - S*1.25, S*1.1, S*.6, S*.18); ctx.fill();
+    ctx.fillStyle = COL.beacon; ctx.fillText(`${Math.ceil(heliWait())} s`, cx, cy - S*.94);
+  }
+}
+function drawBerg(){
+  rescue.haz.forEach(k => drawSnowTile(k % W, (k / W) | 0));
+  if (state === 'play' || state === 'ready' || state === 'paused') drawPad();
+  if (rescue.dig != null){
+    const q = rescue.persons[rescue.dig], k = 1 - Math.max(0, rescue.hold) / DIG_T;
+    ctx.save(); ctx.beginPath(); ctx.rect(q.x*S - S, q.y*S - S, S*3, S*(.62 + .5*k)); ctx.clip();
+    drawPerson(ctx, (q.x + .5)*S, (q.y + .55 + (1 - k)*.4)*S, S, tNow, true); ctx.restore();
+  }
+}
+/* drifting fog: a cloudy texture that slowly moves across the slope, only the surroundings of the quad stay clear */
+let fogTex = null, fogKey = '';
+function buildFogTex(){
+  const w = W*S*2, h = H*S, c = document.createElement('canvas');
+  c.width = Math.round(w*dpr); c.height = Math.round(h*dpr);
+  const g = c.getContext('2d'); g.scale(dpr, dpr);
+  const r = rng(4711);
+  g.fillStyle = 'rgba(150,165,188,.55)'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 90; i++){
+    const x = r()*w, y = r()*h, rad = S*(1.2 + r()*3.2), a = .18 + r()*.3;
+    for (const ox of [0, -w, w]){
+      const gr = g.createRadialGradient(x + ox, y, 0, x + ox, y, rad);
+      gr.addColorStop(0, `rgba(205,215,232,${a})`); gr.addColorStop(1, 'rgba(205,215,232,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x + ox, y, rad, 0, Math.PI*2); g.fill();
+    }
+  }
+  for (let i = 0; i < 40; i++){
+    const x = r()*w, y = r()*h, rad = S*(1 + r()*2.5);
+    for (const ox of [0, -w, w]){
+      const gr = g.createRadialGradient(x + ox, y, 0, x + ox, y, rad);
+      gr.addColorStop(0, 'rgba(40,52,72,.35)'); gr.addColorStop(1, 'rgba(40,52,72,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x + ox, y, rad, 0, Math.PI*2); g.fill();
+    }
+  }
+  fogTex = c; fogKey = S + '|' + dpr;
+}
+function drawFog(){
+  if (!darkCv || darkCv.width !== cv.width || darkCv.height !== cv.height){
+    darkCv = document.createElement('canvas'); darkCv.width = cv.width; darkCv.height = cv.height; darkCtx = darkCv.getContext('2d');
+  }
+  if (!fogTex || fogKey !== S + '|' + dpr) buildFogTex();
+  const g = darkCtx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, W*S, H*S);
+  g.fillStyle = 'rgba(8,12,22,.55)'; g.fillRect(0, 0, W*S, H*S);
+  // two layers drifting at different speeds
+  const tw = W*S*2;
+  for (const [sp, al, oy] of [[.35, .95, 0], [-.22, .55, S*.6]]){
+    const off = ((tNow * S * sp) % tw + tw) % tw;
+    g.globalAlpha = al;
+    g.drawImage(fogTex, -off, oy, tw, H*S); g.drawImage(fogTex, tw - off, oy, tw, H*S);
+  }
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'destination-out';
+  const p = pos(player), px = (p.x + .5)*S, py = (p.y + .5)*S;
+  let gr = g.createRadialGradient(px, py, S*.5, px, py, S*2.3);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(.5, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(px, py, S*2.3, 0, Math.PI*2); g.fill();
+  // headlights only reach a little into the fog
+  const ang = [-Math.PI/2, Math.PI, Math.PI/2, 0][player.face < 0 ? 3 : player.face];
+  gr = g.createRadialGradient(px, py, S*.5, px, py, S*3.4);
+  gr.addColorStop(0, 'rgba(0,0,0,.85)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(px, py); g.arc(px, py, S*3.4, ang - .45, ang + .45); g.closePath(); g.fill();
+  lightHole(g, (SAMMEL.x + .5)*S, (SAMMEL.y + .2)*S, S*1.6, .85);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 'o') lightHole(g, (x + .5)*S, (y + .5)*S, S*.9, .7);
+  if (rescue.dig != null){ const q = rescue.persons[rescue.dig]; lightHole(g, (q.x + .5)*S, (q.y + .5)*S, S*1.3, .9); }
+  g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(darkCv, 0, 0, W*S, H*S);
+}
+/* above the fog: avalanche warning, fresh snow, transceiver ring and read-out */
+function drawBergOverlay(){
+  // dark strips behind the read-outs, so they stay readable on the light fog
+  ctx.fillStyle = 'rgba(11,16,25,.72)'; ctx.fillRect(0, 0, W*S, S); ctx.fillRect(0, (H - 1)*S, W*S, S);
+  ctx.save(); ctx.globalAlpha = .55; rescue.haz.forEach(k => drawSnowTile(k % W, (k / W) | 0)); ctx.restore();
+  const a = rescue.ava;
+  if (a && !a.hit){
+    const bl = Math.floor(tNow*6) % 2 === 0, y0 = a.y0*S, hh = (a.y1 - a.y0 + 1)*S;
+    ctx.fillStyle = bl ? 'rgba(255,77,77,.3)' : 'rgba(255,182,39,.18)'; ctx.fillRect(0, y0, W*S, hh);
+    ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = Math.max(1.5, S*.08); ctx.setLineDash([S*.4, S*.25]);
+    ctx.strokeRect(1, y0 + 1, W*S - 2, hh - 2); ctx.setLineDash([]);
+    ctx.font = `700 ${Math.round(S*.8)}px ${getFont()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(11,16,25,.75)'; rr(ctx, W*S/2 - S*3, y0 + hh/2 - S*.55, S*6, S*1.1, S*.3); ctx.fill();
+    ctx.fillStyle = bl ? '#ff6b6b' : '#ffd23f'; ctx.fillText(`LAWINE! ${Math.ceil(AVA_WARN - a.t)}`, W*S/2, y0 + hh/2 + S*.03);
+  }
+  if (state !== 'play' && state !== 'paused') return;
+  const p = pos(player), px = (p.x + .5)*S, py = (p.y + .5)*S, d = lvsDist();
+  const carrying = player.person != null;
+  const inRange = !carrying && d.p && (d.d <= LVS_RANGE || rescue.dogT > 0);
+  if (carrying){
+    // green halo around the quad and an arrow to the landing pad
+    const k = (Math.sin(tNow*7) + 1)/2;
+    ctx.strokeStyle = `rgba(159,240,166,${.55 + .4*k})`; ctx.lineWidth = Math.max(2, S*.11);
+    ctx.beginPath(); ctx.arc(px, py, S*(.72 + .08*k), 0, Math.PI*2); ctx.stroke();
+    let hx = SAMMEL.x - p.x; if (hx > W/2) hx -= W; if (hx < -W/2) hx += W;
+    const hy = SAMMEL.y - p.y;
+    if (Math.hypot(hx, hy) > 1.2){
+      const ang = Math.atan2(hy, hx), ax = px + Math.cos(ang)*S*1.3, ay = py + Math.sin(ang)*S*1.3;
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
+      ctx.fillStyle = '#9ff0a6'; ctx.strokeStyle = 'rgba(11,16,25,.9)'; ctx.lineWidth = Math.max(1, S*.06);
+      ctx.beginPath(); ctx.moveTo(S*.5, 0); ctx.lineTo(-S*.28, -S*.34); ctx.lineTo(-S*.12, 0); ctx.lineTo(-S*.28, S*.34); ctx.closePath(); ctx.stroke(); ctx.fill();
+      ctx.restore();
+    }
+  }
+  if (inRange && rescue.ring > 0){
+    const near = Math.max(0, 1 - d.d / LVS_RANGE), col = near > .7 ? '255,77,77' : near > .4 ? '255,182,39' : '120,230,140';
+    ctx.strokeStyle = `rgba(${col},${rescue.ring * .9})`; ctx.lineWidth = Math.max(1.5, S*.09);
+    ctx.beginPath(); ctx.arc(px, py, S*(.6 + (1 - rescue.ring)*1.3), 0, Math.PI*2); ctx.stroke();
+  }
+  if (!carrying && rescue.dogT > 0 && d.p && d.d > .3){
+    const ang = Math.atan2(d.dy, d.dx), ax = px + Math.cos(ang)*S*1.3, ay = py + Math.sin(ang)*S*1.3;
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
+    ctx.fillStyle = '#ffd23f'; ctx.strokeStyle = 'rgba(11,16,25,.9)'; ctx.lineWidth = Math.max(1, S*.06); ctx.beginPath(); ctx.moveTo(S*.5, 0); ctx.lineTo(-S*.28, -S*.34); ctx.lineTo(-S*.12, 0); ctx.lineTo(-S*.28, S*.34); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+  }
+  // read-out in the top wall row
+  ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  if (carrying){ const hw = heliWait(); ctx.fillStyle = hw > 0 ? COL.beacon : '#9ff0a6'; ctx.fillText(hw > 0 ? `Patient an Bord · Hubschrauber in ${Math.ceil(hw)} s` : 'Patient an Bord · zum H', S*.4, S*.5); }
+  else {
+    ctx.fillStyle = inRange ? (d.d < 2 ? '#ff6b6b' : '#9ff0a6') : COL.muted;
+    ctx.fillText(`LVS ${inRange ? Math.max(1, Math.round(d.d * 3)) + ' m' : '– –'}${rescue.dogT > 0 ? ` · Hund ${Math.ceil(rescue.dogT)} s` : ''}`, S*.4, S*.5);
+  }
+  const urgent = rescue.persons.filter((q, i) => q.state === 'wait' && q.dangerT > 0 && rescue.dig !== i).map(q => q.dangerT);
+  if (urgent.length){
+    ctx.textAlign = 'right'; ctx.fillStyle = Math.floor(tNow*4) % 2 ? '#ff6b6b' : COL.beacon;
+    ctx.fillText(`Verschüttet ${Math.ceil(Math.min(...urgent))} s`, (W - .4)*S, S*.5);
+  }
+}
+
 function drawCrate(g, cx, cy, s){
   g.save(); g.translate(cx, cy);
   g.fillStyle = '#7a5226'; rr(g, -s*.26, -s*.2, s*.52, s*.4, s*.05); g.fill();
@@ -1834,6 +2259,7 @@ function drawSammel(){
   drawKlinik(ctx, x + S/2, y + S*.55, S*1.05);
 }
 function drawRescue(){
+  if (rescue.kind === 'berg'){ drawBerg(); return; }
   rescue.haz.forEach(k => drawHazTile(k % W, (k / W) | 0));
   rescue.src.forEach(k => { const x = k % W, y = (k / W) | 0, p = (Math.sin(tNow*6 + k) + 1)/2; ctx.strokeStyle = role === 'fw' ? `rgba(255,210,63,${.5 + .5*p})` : `rgba(160,220,255,${.5 + .5*p})`; ctx.lineWidth = Math.max(1.5, S*.1); ctx.strokeRect(x*S + 1.5, y*S + 1.5, S - 3, S - 3); });
   if (state === 'play' || state === 'ready' || state === 'paused'){ drawSammel(); drawVers(); }
@@ -2234,7 +2660,7 @@ function drawVehicle(g, cx, cy, s, dir, anim, t, vid){
     default: return drawLoader(g, cx, cy, s, dir, anim, t);
   }
 }
-function drawPlayer(g, cx, cy, s, dir, anim, t){ if (rescue) drawRTW(g, cx, cy, s*.95, dir, t); else drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
+function drawPlayer(g, cx, cy, s, dir, anim, t){ if (rescue && rescue.kind === 'berg') drawQuad(g, cx, cy, s*.95, dir, t); else if (rescue) drawRTW(g, cx, cy, s*.95, dir, t); else drawVehicle(g, cx, cy, s, dir, anim, t, curVehicle()); }
 function drawStar(g, cx, cy, r, color){
   g.fillStyle = color; g.beginPath();
   for (let k = 0; k < 10; k++){ const a = -Math.PI/2 + k*Math.PI/5, rr2 = k % 2 ? r*.45 : r; g.lineTo(cx + Math.cos(a)*rr2, cy + Math.sin(a)*rr2); }
@@ -2258,6 +2684,7 @@ const BADGE_ICON = {
   },
   sieg: (g, c, s) => drawStar(g, c, c, s*.38, COL.beacon),
   versorger: (g, c, s) => { g.fillStyle = 'rgba(255,182,39,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawCrate(g, c, c + s*.04, s*.95); },
+  lawinenhund: (g, c, s) => { g.fillStyle = 'rgba(120,170,255,.3)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawEdelweiss(g, c, c, s*.34); },
   retter: (g, c, s) => { g.fillStyle = 'rgba(60,200,120,.35)'; g.beginPath(); g.arc(c, c, s*.36, 0, Math.PI*2); g.fill(); drawPerson(g, c, c + s*.08, s*.8, 0, false); },
   leit: (g, c, s) => {
     g.fillStyle = '#3a4252'; rr(g, c - s*.17, c - s*.2, s*.34, s*.5, s*.06); g.fill();
@@ -2296,6 +2723,7 @@ function drawEntityWrapped(fn, x, y){
   if (x > W - 1.5) fn(x - W, y);
 }
 function render(){
+  const darkNow = !!(ev && ev.type === 'dark') || !!(rescue && rescue.kind === 'berg');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (shakeT > 0 && fxActive()){ const m = S*.22*shakeT/.45; ctx.translate((Math.random() - .5)*m, (Math.random() - .5)*m); }
   ctx.fillStyle = COL.night; ctx.fillRect(0, 0, W*S, H*S);
@@ -2322,8 +2750,13 @@ function render(){
     ctx.fillStyle = Math.floor(tNow * 4) % 2 ? '#ff6b6b' : COL.beacon;
     ctx.fillText(`${R().away} · ${Math.ceil(awayT)} s`, 8.5*S, 9.5*S);
   }
-  if (fxActive() && !(ev && ev.type === 'dark')) drawLighting();
-  if (fxActive() && rescue && state === 'play'){
+  if (fxActive() && !darkNow) drawLighting();
+  if (fxActive() && rescue && rescue.kind === 'berg' && (state === 'play' || state === 'ready')){
+    // light snowfall
+    rescue.snowT = (rescue.snowT || 0) - renderDt;
+    if (rescue.snowT <= 0){ rescue.snowT = .14; emit(1, Math.random()*W, -.3, {vx:-.35, vy:1.3, size:.05, life:5, kind:'dot', layer:1, color:['#ffffff','#dfe9f5'], alpha:.85}); }
+  }
+  if (fxActive() && rescue && rescue.kind !== 'berg' && state === 'play'){
     // smoke over the fire, spray over the water
     rescue.ambT = (rescue.ambT || 0) - renderDt;
     if (rescue.ambT <= 0 && rescue.haz.size){
@@ -2382,12 +2815,18 @@ function render(){
     if (player.crate) drawCrate(ctx, (p.x+.5)*S, (p.y-.2)*S, S*.95);
   }
   ctx.restore();
-  if (fxActive() && !(ev && ev.type === 'dark')) drawGlows();
+  if (fxActive() && !darkNow) drawGlows();
   drawParts(1);
   if (ev && ev.type === 'dark' && state !== 'over') drawDark();
-  if (rescue && state === 'play'){
+  if (rescue && rescue.kind === 'berg' && state !== 'over'){ drawFog(); drawHeli(); drawBergOverlay(); }
+  if (rescue && rescue.kind === 'berg' && state === 'play'){
     ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${RESCUE_N}`, S*.4, (H - .5)*S);
+    ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${rescue.n}`, S*.4, (H - .5)*S);
+    ctx.textAlign = 'right'; ctx.fillStyle = rescue.timeLeft < 20 ? '#ff6b6b' : rescue.timeLeft < 45 ? COL.beacon : COL.ink;
+    ctx.fillText(`Zeit ${Math.ceil(rescue.timeLeft)} s`, (W - .4)*S, (H - .5)*S);
+  } else if (rescue && state === 'play'){
+    ctx.font = `700 ${Math.round(S*.62)}px ${getFont()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#9ff0a6'; ctx.fillText(`Gerettet ${rescue.saved}/${rescue.n}`, S*.4, (H - .5)*S);
     const pct = Math.round(100 * rescue.haz.size / rescue.openN), lim = Math.round(HAZ_LIMIT * 100);
     ctx.textAlign = 'right'; ctx.fillStyle = pct > lim * .75 ? '#ff6b6b' : pct > lim * .5 ? COL.beacon : COL.ink;
     ctx.fillText(`${role === 'fw' ? 'Brand' : 'Wasser'} ${pct}/${lim} %`, (W - .4)*S, (H - .5)*S);
@@ -2409,14 +2848,16 @@ function render(){
   ctx.globalAlpha = 1;
 
   // banners
-  if (state === 'ready') banner(levelIntro ? (isRescue() ? 'Bonuslevel' : `Einsatz ${dispLevel()}/${EINSATZ_N}`) : 'Bereit!', isRescue() ? '#9ff0a6' : COL.beacon, levelIntro ? (isRescue() ? `${curMap.name} · Rettungsdienst` : curMap.name) : '', stateT);
+  if (state === 'ready') banner(levelIntro ? (isRescue() ? 'Bonuslevel' : `Einsatz ${dispLevel()}/${EINSATZ_N}`) : 'Bereit!', isRescue() ? '#9ff0a6' : COL.beacon, levelIntro ? (isRescue() ? `${curMap.name} · ${BONUS_INFO[curMap.kind || 'rd'].name}` : curMap.name) : '', stateT);
   if (state === 'play' && alarmT > 0) banner(R().alarm, role === 'fw' ? '#7fb3ff' : '#ff6b6b', null, 1.8 - alarmT);
   if (state === 'play' && ev && ev.introT > 0) banner(EVENTS[ev.type].title, COL.beacon, EVENTS[ev.type].sub, 2.4 - ev.introT);
-  if (state === 'play' && rescue && rescue.introT > 0) banner('Rettungsdienst!', '#9ff0a6', `Personen in die Klinik, Kisten von VS zu den ${role === 'fw' ? 'Löschzügen' : 'THW-Einheiten'}`, 2.8 - rescue.introT);
+  if (state === 'play' && rescue && rescue.kind === 'berg' && rescue.msg && !(rescue.introT > 0)) banner(rescue.msg.text, '#9ff0a6', rescue.msg.sub, (rescue.msg.text === 'Gefunden!' ? 1.4 : 1.2) - rescue.msg.t);
+  if (state === 'play' && rescue && rescue.kind === 'berg' && rescue.introT > 0) banner('Bergwacht!', '#ffb3b3', 'Dem Piepen folgen, ausgraben, zum Hubschrauber', 2.8 - rescue.introT);
+  else if (state === 'play' && rescue && rescue.introT > 0) banner('Rettungsdienst!', '#9ff0a6', `Personen in die Klinik, Kisten von VS zu den ${role === 'fw' ? 'Löschzügen' : 'THW-Einheiten'}`, 2.8 - rescue.introT);
   if (state === 'play' && kat && kat.introT > 0) banner('Katastrophenfall!', '#ff6b6b', 'Sandsäcke holen, Deich schließen', 2.6 - kat.introT);
   if (state === 'play' && !kat && katMsg) banner(katMsg.text, katMsg.color, katMsg.sub, 2.6 - katMsg.t);
-  if (state === 'clear' && stateT < 1.8){
-    if (rescue && rescue.done) banner(rescue.burned ? (role === 'fw' ? 'Alles abgebrannt' : 'Alles überflutet') : rescue.saved >= RESCUE_OK ? 'Bonus geschafft' : 'Bonus vorbei', rescue.burned || rescue.saved < RESCUE_OK ? '#ff6b6b' : '#9ff0a6', `${rescue.saved} von ${RESCUE_N} gerettet${rescue.saved >= RESCUE_OK ? ' · +1 Leben' : ''}`, stateT);
+  if (state === 'clear' && stateT < (rescue ? 4.2 : 1.8)){
+    if (rescue && rescue.done) banner(rescue.burned ? (rescue.kind === 'berg' ? 'Zeit abgelaufen' : role === 'fw' ? 'Alles abgebrannt' : 'Alles überflutet') : rescue.saved >= rescue.ok ? 'Bonus geschafft' : 'Bonus vorbei', (rescue.burned && rescue.kind !== 'berg') || rescue.saved < rescue.ok ? '#ff6b6b' : '#9ff0a6', `${rescue.saved} von ${rescue.n} gerettet${rescue.saved >= rescue.ok ? ' · +1 Leben' : ''}`, stateT);
     else banner(R().clear, '#9ff0a6', null, stateT);
   }
 }
@@ -2541,7 +2982,7 @@ function showTitle(){
   if (run) $('resume').addEventListener('click', () => startGame(run));
   $('rulesBtn').addEventListener('click', showRules);
   $('badgeBtn').addEventListener('click', showBadges);
-  $('bonusBtn').addEventListener('click', () => startGame(null, true));
+  $('bonusBtn').addEventListener('click', showBonusPick);
   $('setBtn').addEventListener('click', showSettings);
   $('lbBtn').addEventListener('click', () => showBoard());
 }
@@ -2702,6 +3143,21 @@ function showBoard(tab, org){
   };
   (tab === 'orte' ? sbRpc('ortswertung', {}) : sbRpc('leaderboard', org ? {p_org: org} : {})).then(fill);
 }
+function showBonusPick(){
+  card.innerHTML = `
+    <p class="eyebrow">Bonuslevel üben</p>
+    <h2>Welcher Einsatz?</h2>
+    <p>Im echten Spiel kommt das Bonuslevel nach Einsatz 2 und wechselt von Spiel zu Spiel.</p>
+    <div class="btns">
+      <button class="cta" data-bk="rd">Rettungsdienst</button>
+      <button class="cta" data-bk="berg">Bergwacht</button>
+      <button class="cta ghost" disabled style="opacity:.45">Wasserwacht (folgt)</button>
+      <button class="cta ghost" id="back">Zurück</button>
+    </div>`;
+  overlay.hidden = false; requestAnimationFrame(fitCard); card.scrollTop = 0;
+  card.querySelectorAll('button[data-bk]').forEach(b => b.addEventListener('click', () => startGame(null, b.dataset.bk)));
+  $('back').addEventListener('click', showTitle);
+}
 function showRules(){
   card.innerHTML = `
     <p class="eyebrow">Spielregeln · ${R().name}</p>
@@ -2709,9 +3165,9 @@ function showRules(){
     <ul class="legend" id="legend"></ul>
     <ul class="rules">
       <li>Vier Einsätze auf vier Karten: Baustelle, Wache, Ortschaft und Industriegebiet. Danach gibt es den Gesamtsieg.</li>
-      <li>Nach Einsatz 2 kommt das Bonuslevel in der Altstadt. Du fährst den Rettungsdienst, niemand jagt dich. Im Feuerwehr-Modus wütet ein Großbrand, im THW-Modus ein Hochwasser, und drei Einheiten kämpfen dagegen.</li>
-      <li>Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten und bring sie zu den Einheiten, sonst geht ihnen die Kraft aus. Du transportierst immer nur eins.</li>
-      <li>Ab 5 Geretteten gibt es ein Extraleben. Bedeckt die Gefahr 40 % der Karte, ist der Bonus vorbei. Ein Leben kostet das Bonuslevel nie.</li>
+      <li>Nach Einsatz 2 kommt ein Bonuslevel, das von Spiel zu Spiel wechselt. Niemand jagt dich, und ein Leben kostet es nie.</li>
+      <li>Rettungsdienst: In der Altstadt wütet ein Großbrand oder ein Hochwasser. Bring die 8 Personen einzeln in die Klinik (blaues H). Hol oben an der Versorgungsstelle (VS) Kisten für die drei Einheiten, sonst geht ihnen die Kraft aus. Ab 5 Geretteten gibt es ein Extraleben, bei 40 % Gefahr ist Schluss.</li>
+      <li>Bergwacht: Im Nebel liegen 6 Verschüttete. Das Suchgerät (LVS) piept schneller, je näher du kommst. Drüberfahren gräbt aus, dann ab zum Hubschrauber (H). Lawinen sperren kurz einen Streifen, wer darin liegt, hat nur noch begrenzt Zeit. Du hast 60 Sekunden. Der Lawinenhund in den Ecken zeigt 10 Sekunden lang die Richtung. Ab 4 Geretteten gibt es ein Extraleben.</li>
       <li>Das Tempo zählt bei allen Punkten mit: Gemütlich ×0,5, Normal ×1, Zügig ×1,5, Rasant ×2. Die Punktwerte oben gelten für Normal.</li>
       <li>Jeder geschaffte Einsatz bringt ein Extraleben.</li>
       <li>Erwischte Verfolger bleiben 6 Sekunden auf der Wache.</li>
@@ -2867,6 +3323,8 @@ let practice = false;   // 'Bonuslevel üben': play only the bonus level, then b
 function startGame(run, practiceBonus){
   ensureAudio(); sfx.start(); requestWake();
   practice = !!practiceBonus;
+  bonusKind = practice ? (BONUS_KINDS.includes(practiceBonus) ? practiceBonus : 'rd')
+    : run ? (BONUS_KINDS.includes(run.bk) ? run.bk : 'rd') : nextBonusKind();
   if (run){ const runRole = run.role === 'fw' ? 'fw' : 'thw'; if (runRole !== role) setRole(runRole); }
   score = 0; rawScore = 0; lives = 3; level = 1; showMult();
   gameBadges = []; $('toast').hidden = true; toastT = 0;
@@ -2915,7 +3373,7 @@ $('splashBg').src = splashImg.src;
 // show the whole picture (contain) so the drawn buttons are never cut off
 function fitSplash(){
   if (splashEl.hidden) return;
-  const r = splashEl.getBoundingClientRect(), ar = 941 / 1672;
+  const r = splashEl.getBoundingClientRect(), ar = 768 / 1364;
   let w = r.width, h = w / ar;
   if (h > r.height){ h = r.height; w = h * ar; }
   shotEl.style.width = Math.floor(w) + 'px'; shotEl.style.height = Math.floor(h) + 'px';
@@ -2935,7 +3393,7 @@ $('hotFw').addEventListener('click', () => pickSplashRole('fw'));
 $('hotSwap').addEventListener('click', () => pickSplashRole(role === 'thw' ? 'fw' : 'thw'));
 $('hotStart').addEventListener('click', closeSplash);
 $('splashMenu').addEventListener('click', closeSplash);
-$('hotBonus').addEventListener('click', () => { if (splashEl.hidden) return; splashEl.hidden = true; ensureAudio(); startGame(null, true); });
+$('hotBonus').addEventListener('click', () => { if (splashEl.hidden) return; splashEl.hidden = true; ensureAudio(); showBonusPick(); });
 markSplashRole(); fitSplash();
 window.addEventListener('resize', fitSplash);
 window.addEventListener('keydown', e => {
